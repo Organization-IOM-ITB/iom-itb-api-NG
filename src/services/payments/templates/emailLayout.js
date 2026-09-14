@@ -55,7 +55,7 @@ const escapeHtml = (value) => String(value || '')
   .replace(/'/g, '&#39;');
 
 const normalizeBaseUrl = (url) => String(url || '').trim().replace(/\/+$/, '');
-const DEFAULT_ORDER_STATUS_BASE_URL = 'https://iom-app.kirisame.jp.net';
+const DEFAULT_ORDER_STATUS_BASE_URL = 'https://www-ng.iom-itb.id';
 
 const getOrderStatusBaseUrl = () => {
   const explicitBaseUrl = normalizeBaseUrl(process.env.ORDER_STATUS_BASE_URL);
