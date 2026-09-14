@@ -42,7 +42,7 @@ services:
     expose:
       - "3000"
     volumes:
-      - app-uploads-ng:/usr/src/app/src/uploads
+      - app-uploads:/usr/src/app/src/uploads
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
