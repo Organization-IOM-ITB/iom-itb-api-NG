@@ -22,7 +22,7 @@ services:
 
       WEB_ADMIN_URL: ${WEB_ADMIN_URL}
       WEB_APP_URL: ${WEB_APP_URL}
-      ORDER_STATUS_BASE_URL: ${ORDER_STATUS_BASE_URL:-https://iom-app.kirisame.jp.net/}
+      ORDER_STATUS_BASE_URL: ${ORDER_STATUS_BASE_URL:-https://sso-ng.iom-itb.id/}
       API_UPLOAD_URL: ${API_UPLOAD_URL}
 
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL}
@@ -42,7 +42,7 @@ services:
     expose:
       - "3000"
     volumes:
-      - app-uploads:/usr/src/app/src/uploads
+      - app-uploads-ng:/usr/src/app/src/uploads
     restart: unless-stopped
     healthcheck:
       test: ["CMD-SHELL", "wget -qO- http://localhost:3000/ >/dev/null || exit 1"]
@@ -59,7 +59,7 @@ services:
       MYSQL_USER: ${MYSQL_APP_USER:-iom_app}
       MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:-change-me}
     volumes:
-      - mysql-data:/var/lib/mysql
+      - mysql-data-ng:/var/lib/mysql
     expose:
       - "3306"
     restart: unless-stopped
