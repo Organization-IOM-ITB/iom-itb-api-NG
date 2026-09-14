@@ -22,7 +22,7 @@ services:
 
       WEB_ADMIN_URL: ${WEB_ADMIN_URL}
       WEB_APP_URL: ${WEB_APP_URL}
-      ORDER_STATUS_BASE_URL: ${ORDER_STATUS_BASE_URL:-https://sso-ng.iom-itb.id/}
+      ORDER_STATUS_BASE_URL: ${ORDER_STATUS_BASE_URL:-https://www-ng.iom-itb.id}
       API_UPLOAD_URL: ${API_UPLOAD_URL}
 
       KEYCLOAK_ISSUER_URL: ${KEYCLOAK_ISSUER_URL}
