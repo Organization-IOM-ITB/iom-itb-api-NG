@@ -1,5 +1,6 @@
 const { BroadcastSettings, BroadcastLogs } = require('../../models');
 const sendWhatsApp = require('../../utils/whatsapp');
+const { normalizeWhatsAppRecipient } = require('../../utils/whatsappPhone');
 const sendEmail = require('../../utils/mailer');
 const getBroadcastRecipients = require('./getBroadcastRecipients');
 const { toBroadcastRunDto } = require('../../dtos/broadcast');
@@ -10,14 +11,11 @@ const buildMessage = (template, name, jenisIuran) => {
     .replace(/\{\{jenisIuran\}\}/g, jenisIuran);
 };
 
-// External WA API expects 8-15 digits, no '+', leading '0' converted to ID country code.
 const normalizeWa = (raw) => {
-  if (!raw) return null;
-  let digits = String(raw).replace(/\D+/g, '');
-  if (!digits) return null;
-  if (digits.startsWith('0')) digits = `62${digits.slice(1)}`;
-  if (digits.length < 8 || digits.length > 15) return null;
-  return digits;
+  const result = normalizeWhatsAppRecipient(raw, {
+    defaultCountryCode: process.env.WHATSAPP_DEFAULT_COUNTRY_CODE || '62',
+  });
+  return result.isValid ? result.normalized : null;
 };
 
 const runBroadcast = async (settingId) => {

@@ -3,6 +3,9 @@ npm-debug.log
 node_modules
 documents.env.sample
 src/public/images
+src/uploads/*
+!src/uploads/*.pdf
 src/app/storage
 src/storage
+migration-reports/
 src/seeders/Form_*.csv

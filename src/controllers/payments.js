@@ -50,12 +50,16 @@ const VerifyPayment = async (req, res) => {
 
 const CancelPayment = async (req, res) => {
   try {
-    const { orderId } = req.body;
+    const { orderId, publicToken } = req.body;
     const ipAddress = req.headers['x-forwarded-for']?.split(',')[0]?.trim() || req.ip;
-    const result = await cancelPayment(orderId, { ipAddress });
+    const result = await cancelPayment(orderId, {
+      ipAddress,
+      publicToken,
+    });
     return res.status(StatusCodes.OK).json({ status: 200, ...result });
   } catch (error) {
-    return res.status(StatusCodes.INTERNAL_SERVER_ERROR).json({ status: 500, message: error.message });
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    return res.status(status).json({ status, message: error.message });
   }
 };
 

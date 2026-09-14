@@ -56,6 +56,7 @@ const createDonationSnapToken = async (payload) => {
       bank: 'Midtrans',
       paymentMethod: 'midtrans',
       paymentStatus: 'pending',
+      publicToken: generateOrderTrackingToken(),
       grossAmount: amountBreakdown.grossAmount,
     }, { transaction: tx });
 
@@ -102,6 +103,7 @@ const createDonationSnapToken = async (payload) => {
       grossAmount: amountBreakdown.grossAmount,
       uniqueCode: amountBreakdown.uniqueCode,
       facultyName: amountBreakdown.facultyName,
+      publicToken: donation.publicToken,
     };
   } catch (error) {
     if (tx && !tx.finished) await tx.rollback();
@@ -208,7 +210,7 @@ const createTransactionSnapToken = async (payload) => {
         token: snapToken.token,
         orderId: code,
         code,
-        orderStatusToken: newTransaction.publicToken,
+        publicToken: newTransaction.publicToken,
         grossAmount,
       };
     } catch (snapError) {

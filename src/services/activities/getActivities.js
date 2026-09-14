@@ -1,7 +1,7 @@
-const { Activities, Tags } = require('../../models');
+const { Activities, Tags, sequelize } = require('../../models');
 const { Op } = require('sequelize');
 
-const GetActivities = async ({ slug = null, id = null, search = '', page = 1, limit = 10, status = null, sort = 'newest' }) => {
+const GetActivities = async ({ slug = null, id = null, search = '', contributor = '', page = 1, limit = 10, status = null, sort = 'newest' }) => {
 
   if (id) {
     try {
@@ -80,6 +80,23 @@ const GetActivities = async ({ slug = null, id = null, search = '', page = 1, li
         required: false, 
       }
     ];
+  }
+
+  if (contributor) {
+    const contributorName = String(contributor).trim();
+    if (contributorName) {
+      options.where[Op.and] = [
+        ...(options.where[Op.and] || []),
+        sequelize.where(
+          sequelize.fn(
+            'JSON_CONTAINS',
+            sequelize.col('Activities.contributors'),
+            sequelize.fn('JSON_QUOTE', contributorName)
+          ),
+          { [Op.eq]: 1 }
+        ),
+      ];
+    }
   }
 
   try {

@@ -48,6 +48,17 @@ const sanitizeDescription = (html) => {
   });
 };
 
+const getJakartaDateString = () => {
+  const parts = new Intl.DateTimeFormat('en-CA', {
+    timeZone: 'Asia/Jakarta',
+    year: 'numeric',
+    month: '2-digit',
+    day: '2-digit',
+  }).formatToParts(new Date());
+  const dateParts = Object.fromEntries(parts.map(part => [part.type, part.value]));
+  return `${dateParts.year}-${dateParts.month}-${dateParts.day}`;
+};
+
 const UpdateActivities = async (id, body) => {
   const transaction = await sequelize.transaction();
 
@@ -63,7 +74,7 @@ const UpdateActivities = async (id, body) => {
 
     const { title, date, description, url, image, status, tags, contributors } = body;
 
-    if (!title && !date && !description && !url && !image && !status && tags === undefined) {
+    if (!title && !date && !description && !url && image === undefined && !status && tags === undefined && contributors === undefined) {
       throw new BaseError({
         status: StatusCodes.BAD_REQUEST,
         message: 'Setidaknya salah satu field harus diisi untuk pembaruan.',
@@ -86,23 +97,46 @@ const UpdateActivities = async (id, body) => {
         message: 'Maksimal 3 tag per kegiatan.',
       });
     }
-    console.log('RAW DESCRIPTION:', description);
 
     const cleanDescription = description !== undefined
       ? sanitizeDescription(description)
       : activity.description;
 
-    console.log('CLEAN DESCRIPTION:', cleanDescription);
+    const nextStatus = status || activity.status;
+    const nextImage = image !== undefined ? image : activity.image;
+    const nextContributors = contributors !== undefined ? contributors : activity.contributors;
+
+    if (nextStatus === 'published') {
+      if (!nextImage) {
+        throw new BaseError({
+          status: StatusCodes.BAD_REQUEST,
+          message: 'Thumbnail wajib diisi sebelum publish.',
+        });
+      }
+
+      const validContributors = Array.isArray(nextContributors)
+        ? nextContributors.filter(contributor => String(contributor).trim())
+        : [];
+
+      if (validContributors.length === 0) {
+        throw new BaseError({
+          status: StatusCodes.BAD_REQUEST,
+          message: 'Minimal 1 kontributor wajib diisi sebelum publish.',
+        });
+      }
+    }
+
+    const shouldSetPublishDate = status === 'published' && activity.status !== 'published' && date === undefined;
 
     await Activities.update(
       {
         title: title || activity.title,
-        image: image || activity.image,
+        image: nextImage,
         description: cleanDescription,
-        date: date !== undefined ? date : activity.date,
+        date: date !== undefined ? date : shouldSetPublishDate ? getJakartaDateString() : activity.date,
         url: url !== undefined ? url : activity.url,
-        status: status || activity.status,
-        contributors: contributors !== undefined ? contributors : activity.contributors,
+        status: nextStatus,
+        contributors: nextContributors,
       },
       { where: { id }, transaction }
     );

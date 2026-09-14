@@ -1,4 +1,5 @@
 'use strict';
+const crypto = require('crypto');
 const { Model, Op } = require('sequelize');
 
 module.exports = (sequelize, DataTypes) => {
@@ -104,6 +105,12 @@ module.exports = (sequelize, DataTypes) => {
     midtransTransactionId: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    publicToken: {
+      type: DataTypes.STRING(80),
+      allowNull: false,
+      unique: true,
+      defaultValue: () => `ord_${crypto.randomBytes(24).toString('base64url')}`
     },
     grossAmount: {
       type: DataTypes.DECIMAL(12, 2),

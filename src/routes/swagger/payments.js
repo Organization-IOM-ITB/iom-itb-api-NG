@@ -79,6 +79,8 @@
  *             properties:
  *               orderId:
  *                 type: string
+ *               publicToken:
+ *                 type: string
  *     responses:
  *       200:
  *         description: Payment cancelled

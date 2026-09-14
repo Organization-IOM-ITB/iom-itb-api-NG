@@ -8,7 +8,8 @@ const {
   DeleteActivityById,
   GetActivityById,
   GetActivityCounts,
-  GetAllTags
+  GetAllTags,
+  GetAllContributors
 } = require('../controllers/activities');
 const JWTValidation = require('../middlewares/auth');
 const requireRoles = require('../middlewares/requireRoles');
@@ -22,6 +23,7 @@ router.get('/tags', [], GetAllTags);
 
 // Admin
 router.get('/admin/all', JWTValidation, requireRoles(CONTENT_ROLES), GetAllActivitiesAdmin);
+router.get('/admin/contributors', JWTValidation, requireRoles(CONTENT_ROLES), GetAllContributors);
 router.get('/admin/id/:id', JWTValidation, requireRoles(CONTENT_ROLES), GetActivityById);
 router.get('/admin/counts', JWTValidation, requireRoles(CONTENT_ROLES), GetActivityCounts);
 router.post('/', JWTValidation, requireRoles(CONTENT_ROLES), CreateNewActivity);

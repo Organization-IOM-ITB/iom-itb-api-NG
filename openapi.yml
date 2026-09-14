@@ -1848,6 +1848,8 @@ components:
       properties:
         orderId:
           type: string
+        publicToken:
+          type: string
 
     UserInput:
       type: object

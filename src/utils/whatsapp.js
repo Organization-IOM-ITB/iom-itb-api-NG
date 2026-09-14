@@ -1,8 +1,8 @@
 "use strict";
 
 const sendWhatsApp = async (to, message, idempotencyKey, clientReference) => {
-  const apiKey = process.env.WA_API_KEY;
-  const baseUrl = process.env.WA_API_URL || "https://ppl.adharidwan.com";
+  const apiKey = String(process.env.WA_API_KEY || '').trim();
+  const baseUrl = String(process.env.WA_API_URL || "https://ppl.adharidwan.com").trim().replace(/\/+$/, '');
 
   if (!apiKey) {
     return {

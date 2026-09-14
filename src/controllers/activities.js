@@ -36,11 +36,12 @@ const GetActivityBySlug = async (req, res) => {
 
 const GetAllActivities = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10, sort } = req.query;
+    const { search, contributor, page = 1, limit = 10, sort } = req.query;
     const pageNumber = parseInt(page);
     const pageLimit = Math.min(parseInt(limit), 50);
     const activities = await GetActivities({
       search,
+      contributor,
       page: pageNumber,
       limit: pageLimit,
       status: 'published',
@@ -64,11 +65,12 @@ const GetAllActivities = async (req, res) => {
 
 const GetAllActivitiesAdmin = async (req, res) => {
   try {
-    const { search, page = 1, limit = 10, status, sort } = req.query;
+    const { search, contributor, page = 1, limit = 10, status, sort } = req.query;
     const pageNumber = parseInt(page);
     const pageLimit = Math.min(parseInt(limit), 100);
     const activities = await GetActivities({
       search,
+      contributor,
       page: pageNumber,
       limit: pageLimit,
       status,
@@ -122,6 +124,60 @@ const GetAllTags = async (req, res) => {
   }
 };
 
+const normalizeContributorList = (contributors) => {
+  if (Array.isArray(contributors)) return contributors;
+  if (typeof contributors === 'string') {
+    try {
+      const parsed = JSON.parse(contributors);
+      return Array.isArray(parsed) ? parsed : [];
+    } catch {
+      return [];
+    }
+  }
+  return [];
+};
+
+const GetAllContributors = async (req, res) => {
+  try {
+    const { search = '', limit = 8 } = req.query;
+    const query = String(search).trim().toLowerCase();
+    const maxResults = Math.min(parseInt(limit) || 8, 20);
+    const contributorsByKey = new Map();
+
+    const activities = await Activities.findAll({
+      attributes: ['contributors'],
+      where: {
+        contributors: { [Op.ne]: null },
+      },
+      order: [['updatedAt', 'DESC']],
+    });
+
+    activities.forEach((activity) => {
+      normalizeContributorList(activity.contributors).forEach((value) => {
+        const name = String(value).trim().replace(/\s+/g, ' ');
+        if (!name) return;
+        if (query && !name.toLowerCase().includes(query)) return;
+
+        const key = name.toLowerCase();
+        if (!contributorsByKey.has(key)) contributorsByKey.set(key, name);
+      });
+    });
+
+    const contributors = Array.from(contributorsByKey.values())
+      .slice(0, maxResults)
+      .map(name => ({ name }));
+
+    res.status(StatusCodes.OK).json(new BaseResponse({
+      status: StatusCodes.OK,
+      message: 'OK',
+      data: contributors,
+    }));
+  } catch (error) {
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json(new BaseResponse({ status, message: error.message }));
+  }
+};
+
 const CreateNewActivity = async (req, res) => {
   try {
     const { body } = req;
@@ -145,21 +201,6 @@ const UpdateActivityById = async (req, res) => {
   try {
     const { id } = req.params;
     const { body } = req;
-
-    if (body.status === 'published') {
-      if (!body.image) {
-        return res.status(StatusCodes.BAD_REQUEST).json(new BaseResponse({
-          status: StatusCodes.BAD_REQUEST,
-          message: 'Thumbnail wajib diisi sebelum publish.',
-        }));
-      }
-      if (!body.contributors || body.contributors.length === 0) {
-        return res.status(StatusCodes.BAD_REQUEST).json(new BaseResponse({
-          status: StatusCodes.BAD_REQUEST,
-          message: 'Minimal 1 kontributor wajib diisi sebelum publish.',
-        }));
-      }
-    }
     
     const updatedActivity = await UpdateActivity(id, body);
 
@@ -216,6 +257,7 @@ module.exports = {
   GetActivityById,
   GetActivityCounts,
   GetAllTags,
+  GetAllContributors,
   CreateNewActivity,
   UpdateActivityById,
   DeleteActivityById,

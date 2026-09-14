@@ -1,5 +1,8 @@
 const { coreApi } = require('../../utils/midtrans');
+const { Donations, Transactions } = require('../../models');
 const { PaymentNotificationDto } = require('../../dtos/payments');
+const { StatusCodes } = require('http-status-codes');
+const BaseError = require('../../schemas/responses/BaseError');
 const logPaymentEvent = require('./logPaymentEvent');
 const processPaymentUpdate = require('./processPaymentUpdate');
 const {
@@ -10,6 +13,34 @@ const {
 
 const TERMINAL_STATUSES = new Set(['failed', 'expired', 'refunded']);
 const CANCELLABLE_TRANSACTION_STATUSES = new Set(['pending', 'capture', 'authorize']);
+
+const assertPublicCancelAuthorized = async (orderId, publicToken) => {
+  if (!publicToken) {
+    throw new BaseError({
+      status: StatusCodes.FORBIDDEN,
+      message: 'publicToken is required.',
+    });
+  }
+
+  if (orderId.startsWith('DONATION-')) {
+    const donation = await Donations.findOne({
+      where: { midtransOrderId: orderId, publicToken },
+      attributes: ['id'],
+    });
+    if (donation) return;
+  } else if (orderId.startsWith('IOM-')) {
+    const trx = await Transactions.findOne({
+      where: { midtransOrderId: orderId, publicToken },
+      attributes: ['id'],
+    });
+    if (trx) return;
+  }
+
+  throw new BaseError({
+    status: StatusCodes.FORBIDDEN,
+    message: 'Invalid cancel token.',
+  });
+};
 
 const syncMidtransStatus = async (statusResponse) => {
   const paymentDto = PaymentNotificationDto.fromMidtransRaw(statusResponse);
@@ -26,8 +57,9 @@ const syncMidtransStatus = async (statusResponse) => {
   };
 };
 
-const cancelPayment = async (orderId) => {
+const cancelPayment = async (orderId, opts = {}) => {
   if (!orderId) throw new Error('orderId is required');
+  await assertPublicCancelAuthorized(orderId, opts.publicToken);
 
   const currentStatus = await getMidtransStatusOrNull(coreApi, orderId);
 
@@ -102,7 +134,7 @@ const cancelPaymentWithLogging = async (orderId, opts = {}) => {
   let paymentStatus = null;
 
   try {
-    const cancellation = await cancelPayment(orderId);
+    const cancellation = await cancelPayment(orderId, opts);
     result = cancellation.result;
     payload = cancellation.payload || payload;
     paymentStatus = cancellation.paymentStatus || null;

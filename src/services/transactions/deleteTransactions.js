@@ -2,6 +2,8 @@ const { Transactions, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const fs = require('fs');
 const path = require('path');
+const BaseError = require('../../schemas/responses/BaseError');
+const { restoreMerchandiseStock } = require('../payments/stockHelper');
 
 const DeleteTransactions = async (id) => {
   const transaction = await sequelize.transaction(); // Start a transaction
@@ -17,19 +19,20 @@ const DeleteTransactions = async (id) => {
       };
     }
 
-    // Get the previous payment image path
-    const previousImagePath = transactionRecord.payment; 
-    console.log('Previous Payment Image Path:', previousImagePath); // Log previous image path
-    const previousImageFileName = path.basename(previousImagePath);
-    const previousImageFilePath = path.join(__dirname, '../../public/images/transactions', previousImageFileName);
-    
-    // Check if the file exists and delete it
-    if (fs.existsSync(previousImageFilePath)) {
-      console.log('Deleting file:', previousImageFilePath); // Log file path being deleted
-      fs.unlinkSync(previousImageFilePath);
-      console.log('File deleted successfully');
-    } else {
-      console.log('File does not exist:', previousImageFilePath); // Log if file does not exist
+    if (transactionRecord.stockDeducted) {
+      await restoreMerchandiseStock(
+        { merchandiseId: transactionRecord.merchandiseId, qty: transactionRecord.qty },
+        transaction
+      );
+    }
+
+    if (transactionRecord.payment) {
+      const previousImageFileName = path.basename(transactionRecord.payment);
+      const previousImageFilePath = path.join(__dirname, '../../public/images/transactions', previousImageFileName);
+
+      if (fs.existsSync(previousImageFilePath)) {
+        fs.unlinkSync(previousImageFilePath);
+      }
     }
 
     // Delete the transaction
@@ -45,7 +48,10 @@ const DeleteTransactions = async (id) => {
   } catch (error) {
     // Rollback the transaction in case of error
     await transaction.rollback();
-    throw new Error(`Failed to delete transaction: ${error.message || error}`);
+    throw new BaseError({
+      status: error.status || StatusCodes.INTERNAL_SERVER_ERROR,
+      message: `Failed to delete transaction: ${error.message || error}`,
+    });
   }
 };
 
