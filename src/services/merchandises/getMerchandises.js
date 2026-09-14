@@ -5,16 +5,17 @@ const { Op } = require('sequelize');
 const GetMerchandises = async ({ id = null, search = '', page = 1, limit = 5 }) => {
   // Jika id disediakan, kembalikan merchandise berdasarkan id
   if (id) {
-    try {
-      const merchandise = await Merchandises.findByPk(id);
-      if (!merchandise) {
-        return { message: `Merchandise dengan id ${id} tidak ditemukan` };
-      }
-      return merchandise;
-    } catch (error) {
-      return { message: `Terjadi kesalahan: ${error.message}` };
+    // Kegagalan dilempar, bukan dikembalikan sebagai objek pesan. Mengembalikan
+    // { message } membuat controller menganggapnya sukses dan membalas HTTP 200
+    // dengan bentuk data yang salah.
+    const numericId = Number.parseInt(id, 10);
+    if (!Number.isInteger(numericId) || String(numericId) !== String(id).trim()) {
+      const error = new Error(`Id merchandise tidak valid: ${id}`);
+      error.status = 400;
+      throw error;
     }
-    
+
+    return Merchandises.findByPk(numericId);
   }  
 
   // Logika untuk pencarian semua merchandise

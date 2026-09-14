@@ -24,6 +24,9 @@ router.put('/categories/:category', canManageMerchandise, UpdateMerchandiseCateg
 router.delete('/categories/:category', canManageMerchandise, DeleteMerchandiseCategory);
 
 router.get('', [], GetAllMerchandise);
+// Listing untuk dashboard admin. Harus dideklarasikan sebelum '/:id' agar tidak
+// tertangkap sebagai id, dan dilindungi role karena dipakai halaman internal.
+router.get('/internal', canManageMerchandise, GetAllMerchandise);
 router.get('/:id', [], GetMerchandiseById);
 router.post('', canManageMerchandise, [], CreateNewMerchandise);
 router.put('/:id', canManageMerchandise, [], UpdateMerchandiseById);
