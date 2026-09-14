@@ -59,7 +59,7 @@ services:
       MYSQL_USER: ${MYSQL_APP_USER:-iom_app}
       MYSQL_PASSWORD: ${MYSQL_APP_PASSWORD:-change-me}
     volumes:
-      - mysql-data-ng:/var/lib/mysql
+      - mysql-data:/var/lib/mysql
     expose:
       - "3306"
     restart: unless-stopped
