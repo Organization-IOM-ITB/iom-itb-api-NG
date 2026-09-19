@@ -23,6 +23,7 @@ const toPublicTransaction = (transaction) => {
     email: maskEmail(plain.email),
     noTelp: maskPhone(plain.noTelp),
     address: plain.address,
+    notes: plain.notes,
     merchandiseId: plain.merchandiseId,
     merchandises: plain.merchandises ? {
       name: plain.merchandises.name,
