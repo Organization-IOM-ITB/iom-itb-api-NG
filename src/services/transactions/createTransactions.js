@@ -55,7 +55,7 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
 
 const CreateTransaction = async (body, files, uploadPath) => {
   const imageFile = files && files['payment'] ? files['payment'][0] : null;
-  const { merchandiseId, username, email, noTelp, address, qty } = body;
+  const { merchandiseId, username, email, noTelp, address, qty, notes } = body;
 
   if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
     throw new BaseError({
@@ -105,6 +105,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
         paymentStatus: 'pending',
         grossAmount,
         stockDeducted: true,
+        notes: notes || null,
       },
       { transaction }
     );

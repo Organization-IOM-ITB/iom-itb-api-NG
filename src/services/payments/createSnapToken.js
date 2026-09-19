@@ -116,7 +116,7 @@ const createDonationSnapToken = async (payload) => {
 };
 
 const createTransactionSnapToken = async (payload) => {
-  const { merchandiseId, username, email, noTelp, address, qty } = payload;
+  const { merchandiseId, username, email, noTelp, address, qty, notes } = payload;
 
   if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
     throw new BaseError({
@@ -168,6 +168,7 @@ const createTransactionSnapToken = async (payload) => {
       grossAmount,
       expiredAt,
       stockDeducted: true,
+      notes: notes || null,
     }, { transaction: tx });
 
     const code = `IOM-${Date.now()}-${newTransaction.id}`;
