@@ -260,3 +260,4 @@ const processPaymentUpdate = async (notification) => {
 };
 
 module.exports = processPaymentUpdate;
+module.exports.notifyTransactionPaid = notifyTransactionPaid;

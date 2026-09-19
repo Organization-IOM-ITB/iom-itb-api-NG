@@ -5,6 +5,7 @@ const CreateTransaction = require('../services/transactions/createTransactions')
 const GetTransaction = require('../services/transactions/getTransactions');
 const UpdateTransaction = require('../services/transactions/updateTransactions'); // Fixed the function name
 const DeleteTransaction = require('../services/transactions/deleteTransactions'); // Fixed the function name
+const ConfirmManualPayment = require('../services/transactions/confirmManualPayment');
 
 const GetTransactionById = async (req, res) => {
   try {
@@ -167,6 +168,25 @@ const UpdateTransactionById = async (req, res) => {
   }
 };
 
+// Confirm manual (bank transfer) payment after admin reviews the proof
+const ConfirmTransactionPayment = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await ConfirmManualPayment(id);
+    res.status(StatusCodes.OK).json(new BaseResponse({
+      status: StatusCodes.OK,
+      message: result.message,
+      data: result.data,
+    }));
+  } catch (error) {
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json(new BaseResponse({
+      status,
+      message: error.message,
+    }));
+  }
+};
+
 // Delete transaction by ID
 const DeleteTransactionById = async (req, res) => {
   try {
@@ -192,5 +212,6 @@ module.exports = {
   GetAllTransaction,
   CreateNewTransaction,
   UpdateTransactionById,
+  ConfirmTransactionPayment,
   DeleteTransactionById,
 };
