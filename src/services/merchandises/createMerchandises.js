@@ -8,7 +8,7 @@ const CreateMerchandises = async (body) => {
 
   try {
     // Validate required fields
-    const { name, price, stock, image, link, kategori } = body;
+    const { name, price, stock, image, link, kategori, hpp } = body;
 
     if (!name || !price || !stock) {
       throw new BaseError({
@@ -27,6 +27,7 @@ const CreateMerchandises = async (body) => {
         stock,
         link,
         kategori: kategori || null,
+        hpp: hpp || 0,
       },
       { transaction }
     );

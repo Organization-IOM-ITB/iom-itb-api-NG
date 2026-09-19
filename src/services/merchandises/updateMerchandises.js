@@ -17,9 +17,9 @@ const UpdateMerchandises = async (id, body) => {
       });
     }
 
-    const { name, price, stock, image, link, kategori } = body;
+    const { name, price, stock, image, link, kategori, hpp } = body;
 
-    if (!name && !price && !stock && !image && !link) {
+    if (!name && !price && !stock && !image && !link && hpp === undefined) {
       throw new BaseError({
         status: StatusCodes.BAD_REQUEST,
         message: 'At least one of name, price, stock or image must be provided for update',
@@ -36,6 +36,7 @@ const UpdateMerchandises = async (id, body) => {
         stock: stock !== undefined ? stock : merchandise.stock,
         link: link ? link : merchandise.link,
         kategori: kategori !== undefined ? kategori : merchandise.kategori,
+        hpp: hpp !== undefined ? hpp : merchandise.hpp,
       },
       {
         where: { id },
