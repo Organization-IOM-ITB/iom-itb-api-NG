@@ -204,9 +204,9 @@ const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, 
   <table style="width:100%;border-collapse:collapse;margin:16px 0;">
     <tr><td style="padding:8px 0;color:#6b7280;">Kode Pesanan</td><td style="padding:8px 0;font-weight:bold;">${code}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${merchandiseName} x ${qty}</td></tr>
+    ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
     <tr><td style="padding:8px 0;color:#6b7280;">Status Saat Ini</td><td style="padding:8px 0;font-weight:bold;color:#1d4ed8;text-transform:capitalize;">${status}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Alamat Pengiriman</td><td style="padding:8px 0;">${address}</td></tr>
-    ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
   </table>
   ${renderOrderStatusCta(orderStatusUrl || buildOrderStatusUrl(orderStatusToken))}
   <p style="color:#6b7280;font-size:13px;margin-top:24px;">Salam,<br><strong>IOM ITB</strong></p>
