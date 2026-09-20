@@ -182,7 +182,7 @@ const SHIPPING_STATUS_COPY = {
   },
 };
 
-const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, qty, address, status, transactionId, orderStatusToken, orderStatusUrl }) => {
+const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, qty, address, notes, status, transactionId, orderStatusToken, orderStatusUrl }) => {
   const copy = SHIPPING_STATUS_COPY[status] || {
     title: 'Update Status Pesanan',
     headline: `Status pesanan Anda diperbarui menjadi: ${status}`,
@@ -206,6 +206,7 @@ const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, 
     <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${merchandiseName} x ${qty}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Status Saat Ini</td><td style="padding:8px 0;font-weight:bold;color:#1d4ed8;text-transform:capitalize;">${status}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Alamat Pengiriman</td><td style="padding:8px 0;">${address}</td></tr>
+    ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
   </table>
   ${renderOrderStatusCta(orderStatusUrl || buildOrderStatusUrl(orderStatusToken))}
   <p style="color:#6b7280;font-size:13px;margin-top:24px;">Salam,<br><strong>IOM ITB</strong></p>

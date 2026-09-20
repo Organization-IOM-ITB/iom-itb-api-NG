@@ -38,6 +38,7 @@ const notifyShippingStatusUpdate = async (trx, status, merchandiseName) => {
       merchandiseName,
       qty: trx.qty,
       address: trx.address,
+      notes: trx.notes,
       status,
       transactionId: trx.id,
       orderStatusToken: trx.publicToken,
