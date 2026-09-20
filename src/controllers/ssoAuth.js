@@ -9,6 +9,11 @@ const {
   isRoleAllowedForApp,
 } = require('../utils/ssoAccess');
 const registerKeycloakUser = require('../services/auth/registerKeycloak');
+const {
+  updateKeycloakUserRole,
+  setKeycloakUserEnabled,
+  deleteKeycloakUser,
+} = require('../services/auth/registerKeycloak');
 
 const normalizeUser = (user = {}) => ({
   sub: user.sub,
@@ -147,8 +152,17 @@ const selectApp = async (req, res) => {
 
 const registerUser = async (req, res) => {
   try {
-    const { email, password, role, username, firstName, lastName } = req.body;
-    const result = await registerKeycloakUser({ email, password, role, username, firstName, lastName });
+    const { email, password, role, username, firstName, lastName, enabled } = req.body;
+    const result = await registerKeycloakUser({
+      email,
+      password,
+      role,
+      username,
+      firstName,
+      lastName,
+      // Default tetap true supaya pemanggil lama (OTA-KU) tidak berubah perilakunya.
+      enabled: enabled === undefined ? true : enabled === true || enabled === 'true',
+    });
 
     res.status(StatusCodes.CREATED).json(
       new BaseResponse({
@@ -168,9 +182,77 @@ const registerUser = async (req, res) => {
   }
 };
 
+const updateUserRole = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { role } = req.body;
+    const result = await updateKeycloakUserRole({ userId: id, role });
+
+    res.status(StatusCodes.OK).json(
+      new BaseResponse({
+        status: StatusCodes.OK,
+        message: 'User role updated successfully',
+        data: result,
+      })
+    );
+  } catch (error) {
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json(
+      new BaseResponse({ status, message: error.message || 'Failed to update role' })
+    );
+  }
+};
+
+const updateUserEnabled = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const { enabled } = req.body;
+    const result = await setKeycloakUserEnabled({
+      userId: id,
+      enabled: enabled === true || enabled === 'true',
+    });
+
+    res.status(StatusCodes.OK).json(
+      new BaseResponse({
+        status: StatusCodes.OK,
+        message: result.enabled ? 'User enabled' : 'User disabled',
+        data: result,
+      })
+    );
+  } catch (error) {
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json(
+      new BaseResponse({ status, message: error.message || 'Failed to update user' })
+    );
+  }
+};
+
+const deleteUser = async (req, res) => {
+  try {
+    const { id } = req.params;
+    const result = await deleteKeycloakUser({ userId: id });
+
+    res.status(StatusCodes.OK).json(
+      new BaseResponse({
+        status: StatusCodes.OK,
+        message: 'User deleted successfully',
+        data: result,
+      })
+    );
+  } catch (error) {
+    const status = error.status || StatusCodes.INTERNAL_SERVER_ERROR;
+    res.status(status).json(
+      new BaseResponse({ status, message: error.message || 'Failed to delete user' })
+    );
+  }
+};
+
 module.exports = {
   getMe,
   getApps,
   selectApp,
   registerUser,
+  updateUserRole,
+  updateUserEnabled,
+  deleteUser,
 };
