@@ -29,6 +29,17 @@ const normalizeOrigin = (value) => {
   }
 };
 
+// Satu aplikasi web bisa dilayani dari beberapa hostname sekaligus (mis.
+// www-ng.iom-itb.id, www.iom-itb.id, dan apex iom-itb.id), sementara tiap env
+// var hanya memuat satu URL. Karena itu setiap nilai boleh berisi daftar yang
+// dipisah koma — tanpa ini, origin yang tidak terdaftar diblokir browser dan
+// halaman tampil kosong meski API-nya sendiri sehat.
+const expandOrigins = (value) =>
+  String(value || '')
+    .split(',')
+    .map((part) => part.trim())
+    .filter(Boolean);
+
 const getCorsOrigins = () => {
   const origins = [];
 
@@ -38,13 +49,18 @@ const getCorsOrigins = () => {
   }
 
   // Production origins dari environment variables
-  origins.push(process.env.WEB_APP_URL, process.env.WEB_ADMIN_URL, process.env.API_UPLOAD_URL);
+  origins.push(
+    ...expandOrigins(process.env.CORS_ALLOWED_ORIGINS),
+    ...expandOrigins(process.env.WEB_APP_URL),
+    ...expandOrigins(process.env.WEB_ADMIN_URL),
+    ...expandOrigins(process.env.API_UPLOAD_URL)
+  );
 
   const normalized = [...new Set(origins.map(normalizeOrigin).filter(Boolean))];
 
   // Fallback untuk production jika env vars tidak ada
   if (process.env.NODE_ENV === 'production' && normalized.length === 0) {
-    console.warn('⚠️  No CORS origins configured! Please set WEB_APP_URL and WEB_ADMIN_URL environment variables.');
+    console.warn('⚠️  No CORS origins configured! Please set CORS_ALLOWED_ORIGINS (atau WEB_APP_URL / WEB_ADMIN_URL) environment variables.');
   } else {
     console.info(`CORS allowed origins: ${normalized.join(', ')}`);
   }
