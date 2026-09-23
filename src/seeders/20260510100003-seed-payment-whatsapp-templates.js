@@ -33,6 +33,7 @@ Pembayaran pesanan Anda telah berhasil!
 
 Kode Pesanan: {{code}}
 Produk: {{merchandise_name}} x {{qty}}
+{{notes_block}}
 Total: Rp {{amount}}
 
 Pesanan Anda sedang diproses. Pantau status pesanan melalui tautan berikut:

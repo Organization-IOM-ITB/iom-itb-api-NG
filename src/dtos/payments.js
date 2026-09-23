@@ -228,6 +228,7 @@ class TransactionDto {
     this.merchandiseName = data.merchandiseName || null;
     this.qty = Number(data.qty || 0);
     this.code = data.code || null;
+    this.notes = data.notes || null;
     this.publicToken = data.publicToken || null;
     this.midtransOrderId = data.midtransOrderId || null;
     this.paymentMethod = data.paymentMethod || null;
@@ -261,6 +262,7 @@ class TransactionDto {
       merchandiseName: trx.merchandiseName || trx.merchandises?.name,
       qty: trx.qty,
       code: trx.code,
+      notes: trx.notes,
       publicToken: trx.publicToken,
       midtransOrderId: trx.midtransOrderId,
       paymentMethod: trx.paymentMethod,
@@ -291,6 +293,7 @@ class TransactionDto {
       code: this.getOrderCode(),
       merchandiseName: this.merchandiseName || 'Merchandise',
       qty: this.qty,
+      notes: this.notes || '',
       amount: Number(this.getGrossAmount() || 0).toLocaleString('id-ID'),
       transactionId,
       orderStatusToken: this.publicToken,
@@ -307,6 +310,9 @@ class TransactionDto {
       { label: 'No. Telp', value: this.noTelp || '-' },
       { label: 'Alamat Pengiriman', value: this.address || '-' },
       { label: 'Produk', value: merchandiseName },
+      // Catatan pembeli ditempatkan langsung di bawah Produk, konsisten
+      // dengan email status pesanan.
+      ...(this.notes ? [{ label: 'Catatan', value: this.notes }] : []),
       { label: 'Harga Satuan', value: unitPrice },
       { label: 'Jumlah', value: `${this.qty} pcs` },
     ];

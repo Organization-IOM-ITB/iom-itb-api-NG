@@ -76,6 +76,7 @@ const buildTransactionPaymentEmail = async ({
   merchandiseName,
   qty,
   amount,
+  notes,
   transactionId,
   orderStatusToken,
   orderStatusUrl,
@@ -86,6 +87,11 @@ const buildTransactionPaymentEmail = async ({
     merchandiseName,
     qty,
     amount,
+    notes: notes || '',
+    // Template DB hanya mendukung substitusi {{var}} tanpa kondisional,
+    // jadi baris "Catatan" disiapkan utuh di sini agar hilang sepenuhnya
+    // ketika pembeli tidak mengisi catatan.
+    notesBlock: notes ? `Catatan: ${notes}` : '',
     transactionId,
     orderStatusUrl: orderStatusUrl || buildOrderStatusUrl(orderStatusToken),
   };
@@ -101,6 +107,7 @@ Pembayaran pesanan Anda telah berhasil.
 
 Kode Pesanan: {{code}}
 Produk: {{merchandiseName}} x {{qty}}
+{{notesBlock}}
 Total: Rp {{amount}}
 
 Terima kasih telah berbelanja di IOM ITB!`,
@@ -125,7 +132,7 @@ Terima kasih telah berbelanja di IOM ITB!`,
   };
 };
 
-const buildTransactionProofReceivedEmail = ({ username, code, merchandiseName, qty, amount, transactionId, orderStatusToken, orderStatusUrl }) => ({
+const buildTransactionProofReceivedEmail = ({ username, code, merchandiseName, qty, amount, notes, transactionId, orderStatusToken, orderStatusUrl }) => ({
   subject: 'Bukti Pembayaran Diterima — IOM ITB',
   html: `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
@@ -140,6 +147,7 @@ const buildTransactionProofReceivedEmail = ({ username, code, merchandiseName, q
   <table style="width:100%;border-collapse:collapse;margin:16px 0;">
     <tr><td style="padding:8px 0;color:#6b7280;">Kode Pesanan</td><td style="padding:8px 0;font-weight:bold;">${code}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${merchandiseName} x ${qty}</td></tr>
+    ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
     <tr><td style="padding:8px 0;color:#6b7280;">Total</td><td style="padding:8px 0;font-weight:bold;color:#16a34a;">Rp ${amount}</td></tr>
   </table>
   <p>Anda akan mendapat notifikasi lanjutan setelah pembayaran terverifikasi.</p>

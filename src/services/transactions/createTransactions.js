@@ -36,6 +36,7 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
       merchandiseName,
       qty: trx.qty,
       amount,
+      notes: trx.notes,
       transactionId: trx.id,
       orderStatusToken: trx.publicToken,
       orderStatusUrl,

@@ -94,10 +94,12 @@ const notifyTransactionPaid = async (trx, transactionId) => {
           code: confirmationPayload.code,
           merchandise_name: confirmationPayload.merchandiseName,
           qty: trx.qty,
+          notes: trx.notes || '',
+          notes_block: trx.notes ? `Catatan: ${trx.notes}` : '',
           amount: confirmationPayload.amount,
           order_status_url: orderStatusUrl,
         },
-        `Halo ${trx.username}!\n\nPembayaran pesanan Anda telah berhasil!\n\nKode Pesanan: ${confirmationPayload.code}\nProduk: ${confirmationPayload.merchandiseName} x ${trx.qty}\nTotal: Rp ${confirmationPayload.amount}\n\nPesanan Anda sedang diproses. Pantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`
+        `Halo ${trx.username}!\n\nPembayaran pesanan Anda telah berhasil!\n\nKode Pesanan: ${confirmationPayload.code}\nProduk: ${confirmationPayload.merchandiseName} x ${trx.qty}${trx.notes ? `\nCatatan: ${trx.notes}` : ''}\nTotal: Rp ${confirmationPayload.amount}\n\nPesanan Anda sedang diproses. Pantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`
       );
       tasks.push(
         sendWhatsApp(
