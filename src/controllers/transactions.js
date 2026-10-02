@@ -108,6 +108,7 @@ const GetAllTransaction = async (req, res) => {
     res.status(StatusCodes.OK).json({
       data: transactions.data,
       total: totalEntries,
+      summary: transactions.summary,
       pagination: {
         currentPage: pageNumber,
         totalPages,

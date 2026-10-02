@@ -148,14 +148,29 @@ const GetTransactions = async (key, query = {}, search = '') => {
     ];
   }
 
+  // Total lintas halaman untuk kartu ringkasan admin, dengan filter yang
+  // sama seperti daftar. Op.and agar filter paymentStatus/status dari query
+  // tidak tertimpa (mis. filter "pending" → total lunas 0).
+  const countWith = (extra) => Transactions.count({
+    where: { [Op.and]: [options.where, extra] },
+    include: { ...options.include },
+    distinct: true,
+    col: 'id',
+  });
+
   try {
-    const { rows, count } = await Transactions.findAndCountAll(options);
+    const [{ rows, count }, settledCount, needProcessCount] = await Promise.all([
+      Transactions.findAndCountAll(options),
+      countWith({ paymentStatus: 'settlement' }),
+      countWith({ status: { [Op.in]: ['waiting', 'on process'] } }),
+    ]);
 
     return {
       data: rows,
       total: count,
       currentPage: page,
       totalPages: Math.ceil(count / limit),
+      summary: { settledCount, needProcessCount },
     };
   } catch (error) {
     throw new Error(`Failed to retrieve transaction data: ${error.message}`);
