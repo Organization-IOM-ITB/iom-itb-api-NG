@@ -2,6 +2,7 @@ const { Router } = require('express');
 const { CreateSnapToken, HandleNotification, VerifyPayment, CancelPayment } = require('../controllers/payments');
 const { createRateLimiter } = require('../middlewares/rateLimit');
 const midtransIpAllowlist = require('../middlewares/midtransIpAllowlist');
+const requireMidtransEnabled = require('../middlewares/requireMidtransEnabled');
 
 const router = Router();
 
@@ -10,7 +11,7 @@ const notificationLimiter = createRateLimiter({ windowMs: 60_000, max: 120, keyP
 const verifyLimiter = createRateLimiter({ windowMs: 60_000, max: 20, keyPrefix: 'verify' });
 const cancelLimiter = createRateLimiter({ windowMs: 60_000, max: 20, keyPrefix: 'cancel' });
 
-router.post('/snap-token', snapLimiter, CreateSnapToken);
+router.post('/snap-token', requireMidtransEnabled, snapLimiter, CreateSnapToken);
 router.post('/notification', notificationLimiter, midtransIpAllowlist, HandleNotification);
 router.post('/verify', verifyLimiter, VerifyPayment);
 router.post('/cancel', cancelLimiter, CancelPayment);
