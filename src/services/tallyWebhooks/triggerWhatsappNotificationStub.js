@@ -10,6 +10,9 @@ const DEFAULT_TEMPLATE_BY_FORM = {
     "Assalamu'alaikum {{name}}, pengajuan bantuan Anda sudah kami terima dan akan diproses. Ref: {{submission_id}}.",
   orang_tua_asuh:
     "Assalamu'alaikum {{name}}, terima kasih. Form Orang Tua Asuh Anda sudah kami terima. Ref: {{submission_id}}.",
+  // Sengaja tidak menyebut dana "sudah diterima": transfer belum diverifikasi.
+  donasi:
+    "Assalamu'alaikum {{name}}, terima kasih. Konfirmasi donasi Anda sudah kami terima dan akan dicek oleh Bendahara IOM-ITB. Ref: {{submission_id}}.",
 };
 
 function normalizeLabelForMatching(label) {
@@ -63,6 +66,7 @@ function getTemplateByForm(formSlug) {
       process.env.TALLY_WHATSAPP_TEMPLATE_PENDAFTARAN_ANGGOTA,
     pengajuan_bantuan: process.env.TALLY_WHATSAPP_TEMPLATE_PENGAJUAN_BANTUAN,
     orang_tua_asuh: process.env.TALLY_WHATSAPP_TEMPLATE_ORANG_TUA_ASUH,
+    donasi: process.env.TALLY_WHATSAPP_TEMPLATE_DONASI,
   };
 
   return (

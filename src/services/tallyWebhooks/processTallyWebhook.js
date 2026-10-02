@@ -12,6 +12,7 @@ const FORM_SLUGS = {
   PENDAFTARAN_ANGGOTA: "pendaftaran_anggota",
   PENGAJUAN_BANTUAN: "pengajuan_bantuan",
   ORANG_TUA_ASUH: "orang_tua_asuh",
+  DONASI: "donasi",
 };
 
 function getNestedValue(obj, path) {

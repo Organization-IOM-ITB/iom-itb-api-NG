@@ -19,7 +19,7 @@ module.exports = (sequelize, DataTypes) => {
         unique: true,
       },
       formSlug: {
-        type: DataTypes.ENUM('pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh'),
+        type: DataTypes.ENUM('pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh', 'donasi'),
         allowNull: false,
       },
       signatureHeader: {

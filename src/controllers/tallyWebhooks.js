@@ -53,4 +53,5 @@ module.exports = {
   handlePendaftaranAnggotaWebhook: createWebhookHandler(FORM_SLUGS.PENDAFTARAN_ANGGOTA),
   handlePengajuanBantuanWebhook: createWebhookHandler(FORM_SLUGS.PENGAJUAN_BANTUAN),
   handleOrangTuaAsuhWebhook: createWebhookHandler(FORM_SLUGS.ORANG_TUA_ASUH),
+  handleDonasiWebhook: createWebhookHandler(FORM_SLUGS.DONASI),
 };

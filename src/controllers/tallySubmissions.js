@@ -15,7 +15,7 @@ const {
   formatDate,
 } = require('../utils/emailBantuan');
 
-const ALLOWED_FORM_SLUGS = ['pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh'];
+const ALLOWED_FORM_SLUGS = ['pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh', 'donasi'];
 
 const STATUS_ALIASES = {
   VERIFIKASI_BERKAS: 'VERIFIKASI_BERKAS',

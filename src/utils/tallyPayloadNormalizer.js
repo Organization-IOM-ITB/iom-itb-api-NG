@@ -32,6 +32,7 @@ function isPhoneLikeLabel(input) {
   return (
     n.includes('nomor wa') ||
     n.includes('no wa') ||
+    n.includes('no hp') ||
     n.includes('whatsapp') ||
     n.includes('nomor hp') ||
     n.includes('phone number') ||
@@ -84,6 +85,34 @@ function isCsvDerivedColumn(label, rawValue) {
   return (v === 'true' || v === 'false') && /\(.+\)\s*$/.test(String(label).trim());
 }
 
+const isEmptyAnswer = (value) =>
+  value === null || value === undefined || String(value).trim() === '';
+
+// Satu form Tally bisa punya beberapa pertanyaan berlabel sama — biasanya
+// varian kondisional yang hanya satu terisi (mis. "Nama" di Pengajuan
+// Bantuan, "Upload Bukti Bayar" ×3 di Donasi). Jawaban kosong tidak boleh
+// menimpa jawaban yang sudah terisi; dua jawaban terisi yang berbeda
+// keduanya disimpan, yang berikutnya sebagai "Label (2)", "Label (3)", ...
+function assignAnswer(answersByLabel, label, value) {
+  if (!(label in answersByLabel)) {
+    answersByLabel[label] = value;
+    return;
+  }
+
+  if (isEmptyAnswer(value)) return;
+
+  if (isEmptyAnswer(answersByLabel[label])) {
+    answersByLabel[label] = value;
+    return;
+  }
+
+  if (answersByLabel[label] === value) return;
+
+  let n = 2;
+  while (`${label} (${n})` in answersByLabel) n += 1;
+  answersByLabel[`${label} (${n})`] = value;
+}
+
 /**
  * Normalize a Tally webhook payload.
  * Returns { payload, extractedWhatsapp }.
@@ -126,7 +155,7 @@ function buildWebhookNormalized(rawPayload, formSlug) {
       }
     }
 
-    answersByLabel[effectiveLabel] = value;
+    assignAnswer(answersByLabel, effectiveLabel, value);
 
     if (!extractedWhatsapp && value) {
       if (type === 'INPUT_PHONE_NUMBER' || isPhoneLikeLabel(effectiveLabel)) {
@@ -157,20 +186,26 @@ function buildCsvNormalized(row, formSlug) {
   const answersByLabel = {};
   let extractedWhatsapp = null;
 
-  for (const [label, rawValue] of Object.entries(row || {})) {
+  for (const [label, rawCell] of Object.entries(row || {})) {
     const labelText = String(label ?? '').trim();
     if (!labelText) continue;
     if (CSV_METADATA_LABELS.has(labelText)) continue;
 
-    const trimmed = (rawValue === null || rawValue === undefined ? '' : String(rawValue)).trim();
-    if (!trimmed) continue;
+    // Kolom berjudul sama datang sebagai array bila CSV di-parse dengan
+    // `group_columns_by_name: true` (lihat scripts/importTallyCsv.js).
+    const cells = Array.isArray(rawCell) ? rawCell : [rawCell];
 
-    if (isCsvDerivedColumn(labelText, trimmed)) continue;
+    for (const rawValue of cells) {
+      const trimmed = (rawValue === null || rawValue === undefined ? '' : String(rawValue)).trim();
+      if (!trimmed) continue;
 
-    answersByLabel[labelText] = trimmed;
+      if (isCsvDerivedColumn(labelText, trimmed)) continue;
 
-    if (!extractedWhatsapp && isPhoneLikeLabel(labelText)) {
-      extractedWhatsapp = trimmed;
+      assignAnswer(answersByLabel, labelText, trimmed);
+
+      if (!extractedWhatsapp && isPhoneLikeLabel(labelText)) {
+        extractedWhatsapp = trimmed;
+      }
     }
   }
 

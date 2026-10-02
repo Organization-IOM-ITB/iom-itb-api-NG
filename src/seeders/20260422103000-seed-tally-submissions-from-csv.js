@@ -57,6 +57,9 @@ module.exports = {
 
       const records = parse(fs.readFileSync(filePath, 'utf8'), {
         columns: true,
+        // Kolom berjudul sama → array (lihat buildCsvNormalized); tanpa ini
+        // kolom terakhir menang meskipun kosong.
+        group_columns_by_name: true,
         skip_empty_lines: true,
         bom: true,
         relax_quotes: true,

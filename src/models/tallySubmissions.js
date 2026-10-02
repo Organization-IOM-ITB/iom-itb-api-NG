@@ -36,7 +36,7 @@ module.exports = (sequelize, DataTypes) => {
         allowNull: true,
       },
       formSlug: {
-        type: DataTypes.ENUM('pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh'),
+        type: DataTypes.ENUM('pendaftaran_anggota', 'pengajuan_bantuan', 'orang_tua_asuh', 'donasi'),
         allowNull: false,
       },
       submittedAt: {
