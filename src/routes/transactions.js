@@ -3,6 +3,8 @@ const {
   GetTransactionById,
   GetTransactionByPublicToken,
   GetAllTransaction,
+  GetShippingQuote,
+  GetShippingRates,
   CreateNewTransaction,
   UpdateTransactionById,
   ConfirmTransactionPayment,
@@ -18,6 +20,8 @@ const canManageTransactions = [JWTValidation, requireRoles(FINANCE_ROLES)];
 
 router.get('', canManageTransactions, GetAllTransaction); // Updated to 'GetAllTransaction'
 router.get('/public/:token', [], GetTransactionByPublicToken);
+router.get('/shipping-rates', [], GetShippingRates);
+router.post('/shipping-quote', [], GetShippingQuote);
 router.get('/:id', canManageTransactions, GetTransactionById); // Updated to 'GetTransactionById'
 router.post('', upload.fields([{ name: 'payment', maxCount: 1 }]), CreateNewTransaction); // Updated to 'CreateNewTransaction'
 router.put('/:id', canManageTransactions, upload.fields([{ name: 'payment', maxCount: 1 }]), UpdateTransactionById); // Updated to 'UpdateTransactionById'

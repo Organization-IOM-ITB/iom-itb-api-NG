@@ -21,6 +21,12 @@ const toNumber = (value) => {
   return Number.isFinite(num) ? num : undefined;
 };
 
+const formatRupiah = (value) => new Intl.NumberFormat('id-ID', {
+  style: 'currency',
+  currency: 'IDR',
+  minimumFractionDigits: 0,
+}).format(Number(value || 0));
+
 const titleCase = (value) => String(value || '')
   .split(/[_\s-]+/)
   .filter(Boolean)
@@ -235,6 +241,8 @@ class TransactionDto {
     this.paymentStatus = data.paymentStatus || null;
     this.status = data.status || null;
     this.grossAmount = toNumber(data.grossAmount);
+    this.shippingCost = toNumber(data.shippingCost);
+    this.shippingZoneLabel = data.shippingZoneLabel || null;
     this.paidAt = data.paidAt || null;
     this.stockDeducted = Boolean(data.stockDeducted);
     this.updatedAt = data.updatedAt || null;
@@ -269,6 +277,8 @@ class TransactionDto {
       paymentStatus: trx.paymentStatus,
       status: trx.status,
       grossAmount: trx.grossAmount,
+      shippingCost: trx.shippingCost,
+      shippingZoneLabel: trx.shippingZoneLabel,
       paidAt: trx.paidAt || null,
       stockDeducted: trx.stockDeducted,
       updatedAt: trx.updatedAt,
@@ -284,7 +294,9 @@ class TransactionDto {
   }
 
   getGrossAmount(unitPrice = 0) {
-    return this.grossAmount != null ? this.grossAmount : Number(unitPrice || 0) * this.qty;
+    return this.grossAmount != null
+      ? this.grossAmount
+      : Number(unitPrice || 0) * this.qty + (this.shippingCost || 0);
   }
 
   toPaymentConfirmationPayload(transactionId) {
@@ -315,6 +327,10 @@ class TransactionDto {
       ...(this.notes ? [{ label: 'Catatan', value: this.notes }] : []),
       { label: 'Harga Satuan', value: unitPrice },
       { label: 'Jumlah', value: `${this.qty} pcs` },
+      ...(this.shippingCost != null ? [{
+        label: 'Ongkir',
+        value: `${formatRupiah(this.shippingCost)}${this.shippingZoneLabel ? ` (${this.shippingZoneLabel})` : ''}`,
+      }] : []),
     ];
   }
 }

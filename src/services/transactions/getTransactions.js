@@ -35,6 +35,8 @@ const toPublicTransaction = (transaction) => {
     paymentStatus: plain.paymentStatus,
     status: plain.status,
     grossAmount: plain.grossAmount,
+    shippingCost: plain.shippingCost,
+    shippingZoneLabel: plain.shippingZoneLabel,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };

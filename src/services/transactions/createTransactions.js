@@ -7,6 +7,7 @@ const sendWhatsApp = require('../../utils/whatsapp');
 const { buildTransactionProofReceivedEmail } = require('../payments/templates/paymentConfirmation');
 const { buildOrderStatusUrl } = require('../payments/templates/emailLayout');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
+const { resolveShipping } = require('./shippingQuote');
 const fs = require('fs');
 const path = require('path');
 
@@ -14,11 +15,12 @@ const formatIDR = (n) => Number(n || 0).toLocaleString('id-ID');
 
 const notifyTransactionProofReceived = async (trx, merchandiseName) => {
   const amount = formatIDR(trx.grossAmount);
+  const shippingLine = trx.shippingCost != null ? `Ongkir: Rp ${formatIDR(trx.shippingCost)}\n` : '';
   const orderStatusUrl = buildOrderStatusUrl(trx.publicToken);
   const tasks = [];
 
   if (trx.noTelp) {
-    const message = `Halo ${trx.username}!\n\nBukti pembayaran Anda telah kami terima.\n\nKode Pesanan: ${trx.code}\nProduk: ${merchandiseName} x ${trx.qty}\nTotal: Rp ${amount}\n\nTim IOM ITB akan memverifikasi pembayaran dalam 1x24 jam. Anda dapat memantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`;
+    const message = `Halo ${trx.username}!\n\nBukti pembayaran Anda telah kami terima.\n\nKode Pesanan: ${trx.code}\nProduk: ${merchandiseName} x ${trx.qty}\n${shippingLine}Total: Rp ${amount}\n\nTim IOM ITB akan memverifikasi pembayaran dalam 1x24 jam. Anda dapat memantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`;
     tasks.push(
       sendWhatsApp(
         trx.noTelp,
@@ -36,6 +38,7 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
       merchandiseName,
       qty: trx.qty,
       amount,
+      shippingCost: trx.shippingCost != null ? formatIDR(trx.shippingCost) : null,
       notes: trx.notes,
       transactionId: trx.id,
       orderStatusToken: trx.publicToken,
@@ -75,6 +78,10 @@ const CreateTransaction = async (body, files, uploadPath) => {
 
   const transaction = await sequelize.transaction();
   try {
+    // Di dalam try agar bukti bayar yang sudah terunggah ikut dihapus bila
+    // alamat tidak dikenali.
+    const shipping = resolveShipping(address);
+
     const merchandise = await Merchandises.findByPk(merchandiseId, {
       transaction,
       lock: transaction.LOCK.UPDATE,
@@ -92,7 +99,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
     // src/uploads/, served statically at the /uploads prefix (see app.js) —
     // not /public/images/transactions, which nothing ever writes to.
     const imageFileName = imageFile ? `${uploadPath}/uploads/${imageFile.filename}` : null;
-    const grossAmount = Number(merchandise.price) * qtyNum;
+    const grossAmount = Number(merchandise.price) * qtyNum + shipping.cost;
 
     const newTransaction = await Transactions.create(
       {
@@ -108,6 +115,8 @@ const CreateTransaction = async (body, files, uploadPath) => {
         paymentMethod: 'manual',
         paymentStatus: 'pending',
         grossAmount,
+        shippingCost: shipping.cost,
+        shippingZone: shipping.zone,
         stockDeducted: true,
         notes: notes || null,
       },

@@ -6,6 +6,8 @@ const GetTransaction = require('../services/transactions/getTransactions');
 const UpdateTransaction = require('../services/transactions/updateTransactions'); // Fixed the function name
 const DeleteTransaction = require('../services/transactions/deleteTransactions'); // Fixed the function name
 const ConfirmManualPayment = require('../services/transactions/confirmManualPayment');
+const { UNKNOWN_ADDRESS_MESSAGE } = require('../services/transactions/shippingQuote');
+const { quoteShipping, SHIPPING_ZONES } = require('../utils/shippingRates');
 
 const GetTransactionById = async (req, res) => {
   try {
@@ -126,6 +128,27 @@ const GetAllTransaction = async (req, res) => {
   }
 };
 
+// Pratinjau ongkir untuk form checkout. data = null bila alamat belum
+// dikenali (bukan error, form cukup menampilkan petunjuk).
+const GetShippingQuote = async (req, res) => {
+  const address = String(req.body?.address || '').slice(0, 1000);
+  const quote = address.trim() ? quoteShipping(address) : null;
+  res.status(StatusCodes.OK).json(new BaseResponse({
+    status: StatusCodes.OK,
+    message: quote ? 'Ongkir ditemukan' : UNKNOWN_ADDRESS_MESSAGE,
+    data: quote,
+  }));
+};
+
+// Daftar tarif ongkir untuk ditampilkan di halaman checkout.
+const GetShippingRates = (req, res) => {
+  res.status(StatusCodes.OK).json(new BaseResponse({
+    status: StatusCodes.OK,
+    message: 'Tarif ongkir',
+    data: Object.entries(SHIPPING_ZONES).map(([zone, { label, cost }]) => ({ zone, label, cost })),
+  }));
+};
+
 // Create new transaction
 const CreateNewTransaction = async (req, res) => {
   try {
@@ -211,6 +234,8 @@ module.exports = {
   GetTransactionByPublicToken,
   GetTransactionByCode,
   GetAllTransaction,
+  GetShippingQuote,
+  GetShippingRates,
   CreateNewTransaction,
   UpdateTransactionById,
   ConfirmTransactionPayment,

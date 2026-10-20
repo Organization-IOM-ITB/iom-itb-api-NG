@@ -1,5 +1,6 @@
 'use strict';
 const { Model } = require('sequelize');
+const { SHIPPING_ZONES } = require('../utils/shippingRates');
 
 module.exports = (sequelize, DataTypes) => {
   class Transactions extends Model {
@@ -129,6 +130,23 @@ module.exports = (sequelize, DataTypes) => {
     notes: {
       type: DataTypes.TEXT,
       allowNull: true
+    },
+    // Ongkir flat per pesanan (utils/shippingRates.js); sudah termasuk di
+    // grossAmount. NULL = transaksi lama sebelum ada ongkir.
+    shippingCost: {
+      type: DataTypes.DECIMAL(12, 2),
+      allowNull: true
+    },
+    shippingZone: {
+      type: DataTypes.STRING(64),
+      allowNull: true
+    },
+    shippingZoneLabel: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const zone = SHIPPING_ZONES[this.getDataValue('shippingZone')];
+        return zone ? zone.label : null;
+      }
     }
   }, {
     sequelize,

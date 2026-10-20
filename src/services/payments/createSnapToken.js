@@ -5,6 +5,7 @@ const { snap } = require('../../utils/midtrans');
 const { decreaseMerchandiseStock, restoreMerchandiseStock } = require('./stockHelper');
 const { getDonationAmountBreakdown } = require('../donations/donationAmount');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
+const { resolveShipping } = require('../transactions/shippingQuote');
 
 const SNAP_EXPIRY_HOURS = 24;
 
@@ -130,6 +131,8 @@ const createTransactionSnapToken = async (payload) => {
     throw new BaseError({ status: StatusCodes.BAD_REQUEST, message: 'qty must be a positive integer' });
   }
 
+  const shipping = resolveShipping(address);
+
   let newTransaction;
   let grossAmount;
   let merchandiseName;
@@ -149,7 +152,7 @@ const createTransactionSnapToken = async (payload) => {
 
     merchandisePrice = Math.round(Number(merchandise.price));
     merchandiseName = merchandise.name;
-    grossAmount = merchandisePrice * qtyNum;
+    grossAmount = merchandisePrice * qtyNum + shipping.cost;
 
     const expiredAt = new Date(Date.now() + SNAP_EXPIRY_HOURS * 60 * 60 * 1000);
 
@@ -166,6 +169,8 @@ const createTransactionSnapToken = async (payload) => {
       paymentMethod: 'midtrans',
       paymentStatus: 'pending',
       grossAmount,
+      shippingCost: shipping.cost,
+      shippingZone: shipping.zone,
       expiredAt,
       stockDeducted: true,
       notes: notes || null,
@@ -194,6 +199,12 @@ const createTransactionSnapToken = async (payload) => {
         price: merchandisePrice,
         quantity: qtyNum,
         name: merchandiseName,
+      }, {
+        // Midtrans menolak bila jumlah item_details != gross_amount.
+        id: `shipping-${shipping.zone}`,
+        price: shipping.cost,
+        quantity: 1,
+        name: `Ongkir ${shipping.zoneLabel}`.slice(0, 50),
       }],
       expiry: {
         start_time: formatMidtransStartTime(),
