@@ -1,5 +1,6 @@
 'use strict';
 const { Model } = require('sequelize');
+const { parseStored } = require('../utils/merchandiseOptions');
 
 module.exports = (sequelize, DataTypes) => {
   class Merchandises extends Model {
@@ -59,6 +60,14 @@ module.exports = (sequelize, DataTypes) => {
     kategori: {
       type: DataTypes.STRING,
       allowNull: true
+    },
+    // Opsi pilihan pembeli (Warna/Lengan/Size), lihat utils/merchandiseOptions.js.
+    options: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      get() {
+        return parseStored(this.getDataValue('options')) || null;
+      }
     },
   }, {
     sequelize,

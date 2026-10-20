@@ -6,6 +6,7 @@ const { decreaseMerchandiseStock, restoreMerchandiseStock } = require('./stockHe
 const { getDonationAmountBreakdown } = require('../donations/donationAmount');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
 const { resolveShipping } = require('../transactions/shippingQuote');
+const { resolveSelectedOptions, describeSelectedOptions } = require('../../utils/merchandiseOptions');
 
 const SNAP_EXPIRY_HOURS = 24;
 
@@ -117,7 +118,7 @@ const createDonationSnapToken = async (payload) => {
 };
 
 const createTransactionSnapToken = async (payload) => {
-  const { merchandiseId, username, email, noTelp, address, qty, notes } = payload;
+  const { merchandiseId, username, email, noTelp, address, qty, notes, selectedOptions } = payload;
 
   if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
     throw new BaseError({
@@ -137,6 +138,7 @@ const createTransactionSnapToken = async (payload) => {
   let grossAmount;
   let merchandiseName;
   let merchandisePrice;
+  let options;
 
   const tx = await sequelize.transaction();
   try {
@@ -148,9 +150,12 @@ const createTransactionSnapToken = async (payload) => {
       throw new BaseError({ status: StatusCodes.NOT_FOUND, message: 'Merchandise not found' });
     }
 
+    options = resolveSelectedOptions(merchandise.options, selectedOptions);
+
     await decreaseMerchandiseStock({ merchandiseId, qty: qtyNum }, tx);
 
-    merchandisePrice = Math.round(Number(merchandise.price));
+    // Harga satuan sudah termasuk tambahan harga opsi (mis. XXL, lengan panjang).
+    merchandisePrice = Math.round(Number(merchandise.price)) + options.extraPrice;
     merchandiseName = merchandise.name;
     grossAmount = merchandisePrice * qtyNum + shipping.cost;
 
@@ -171,6 +176,7 @@ const createTransactionSnapToken = async (payload) => {
       grossAmount,
       shippingCost: shipping.cost,
       shippingZone: shipping.zone,
+      selectedOptions: options.selections,
       expiredAt,
       stockDeducted: true,
       notes: notes || null,
@@ -198,7 +204,8 @@ const createTransactionSnapToken = async (payload) => {
         id: String(merchandiseId),
         price: merchandisePrice,
         quantity: qtyNum,
-        name: merchandiseName,
+        // Midtrans membatasi nama item 50 karakter.
+        name: [merchandiseName, describeSelectedOptions(options.selections)].filter(Boolean).join(' - ').slice(0, 50),
       }, {
         // Midtrans menolak bila jumlah item_details != gross_amount.
         id: `shipping-${shipping.zone}`,

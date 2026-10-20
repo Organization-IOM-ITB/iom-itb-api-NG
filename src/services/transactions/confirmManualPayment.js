@@ -2,6 +2,7 @@ const { Transactions, Merchandises, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { TransactionDto } = require('../../dtos/payments');
+const { formatItemName } = require('../../utils/merchandiseOptions');
 const { notifyTransactionPaid } = require('../payments/processPaymentUpdate');
 
 // Konfirmasi pembayaran manual (transfer bank) oleh admin setelah memeriksa
@@ -36,7 +37,7 @@ const ConfirmManualPayment = async (id) => {
       alreadyConfirmed = true;
       await tx.commit();
       updatedRecord = record;
-      merchandiseName = record.merchandises?.name || `Merchandise #${record.merchandiseId}`;
+      merchandiseName = formatItemName(record.merchandises?.name || `Merchandise #${record.merchandiseId}`, record.selectedOptions);
     } else {
       const updates = { paymentStatus: 'settlement', paidAt: new Date() };
       if (record.status === 'waiting') {
@@ -47,7 +48,7 @@ const ConfirmManualPayment = async (id) => {
       await tx.commit();
 
       updatedRecord = record;
-      merchandiseName = record.merchandises?.name || `Merchandise #${record.merchandiseId}`;
+      merchandiseName = formatItemName(record.merchandises?.name || `Merchandise #${record.merchandiseId}`, record.selectedOptions);
     }
   } catch (error) {
     if (!tx.finished) await tx.rollback();

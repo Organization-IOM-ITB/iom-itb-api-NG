@@ -1,3 +1,5 @@
+const { formatItemName, parseStored } = require('../utils/merchandiseOptions');
+
 const MIDTRANS_TO_PAYMENT_STATUS = {
   settlement: 'settlement',
   expire: 'expired',
@@ -243,6 +245,7 @@ class TransactionDto {
     this.grossAmount = toNumber(data.grossAmount);
     this.shippingCost = toNumber(data.shippingCost);
     this.shippingZoneLabel = data.shippingZoneLabel || null;
+    this.selectedOptions = parseStored(data.selectedOptions) || null;
     this.paidAt = data.paidAt || null;
     this.stockDeducted = Boolean(data.stockDeducted);
     this.updatedAt = data.updatedAt || null;
@@ -267,7 +270,9 @@ class TransactionDto {
       noTelp: trx.noTelp,
       address: trx.address,
       merchandiseId: trx.merchandiseId,
-      merchandiseName: trx.merchandiseName || trx.merchandises?.name,
+      merchandiseName: trx.merchandiseName || (trx.merchandises?.name
+        ? formatItemName(trx.merchandises.name, trx.selectedOptions)
+        : null),
       qty: trx.qty,
       code: trx.code,
       notes: trx.notes,
@@ -279,6 +284,7 @@ class TransactionDto {
       grossAmount: trx.grossAmount,
       shippingCost: trx.shippingCost,
       shippingZoneLabel: trx.shippingZoneLabel,
+      selectedOptions: trx.selectedOptions,
       paidAt: trx.paidAt || null,
       stockDeducted: trx.stockDeducted,
       updatedAt: trx.updatedAt,

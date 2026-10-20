@@ -1,6 +1,7 @@
 'use strict';
 const { Model } = require('sequelize');
 const { SHIPPING_ZONES } = require('../utils/shippingRates');
+const { parseStored } = require('../utils/merchandiseOptions');
 
 module.exports = (sequelize, DataTypes) => {
   class Transactions extends Model {
@@ -140,6 +141,14 @@ module.exports = (sequelize, DataTypes) => {
     shippingZone: {
       type: DataTypes.STRING(64),
       allowNull: true
+    },
+    // Snapshot pilihan opsi pembeli: [{ name, value, extraPrice }].
+    selectedOptions: {
+      type: DataTypes.JSON,
+      allowNull: true,
+      get() {
+        return parseStored(this.getDataValue('selectedOptions')) || null;
+      }
     },
     shippingZoneLabel: {
       type: DataTypes.VIRTUAL,

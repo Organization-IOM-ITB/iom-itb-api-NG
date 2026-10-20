@@ -8,6 +8,7 @@ const { buildTransactionProofReceivedEmail } = require('../payments/templates/pa
 const { buildOrderStatusUrl } = require('../payments/templates/emailLayout');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
 const { resolveShipping } = require('./shippingQuote');
+const { resolveSelectedOptions, formatItemName } = require('../../utils/merchandiseOptions');
 const fs = require('fs');
 const path = require('path');
 
@@ -59,7 +60,7 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
 
 const CreateTransaction = async (body, files, uploadPath) => {
   const imageFile = files && files['payment'] ? files['payment'][0] : null;
-  const { merchandiseId, username, email, noTelp, address, qty, notes } = body;
+  const { merchandiseId, username, email, noTelp, address, qty, notes, selectedOptions } = body;
 
   if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
     throw new BaseError({
@@ -93,13 +94,16 @@ const CreateTransaction = async (body, files, uploadPath) => {
       });
     }
 
+    const options = resolveSelectedOptions(merchandise.options, selectedOptions);
+
     await decreaseMerchandiseStock({ merchandiseId, qty: qtyNum }, transaction);
 
     // Multer (middlewares/multer.js) actually saves uploaded files to
     // src/uploads/, served statically at the /uploads prefix (see app.js) —
     // not /public/images/transactions, which nothing ever writes to.
     const imageFileName = imageFile ? `${uploadPath}/uploads/${imageFile.filename}` : null;
-    const grossAmount = Number(merchandise.price) * qtyNum + shipping.cost;
+    const unitPrice = Number(merchandise.price) + options.extraPrice;
+    const grossAmount = unitPrice * qtyNum + shipping.cost;
 
     const newTransaction = await Transactions.create(
       {
@@ -117,6 +121,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
         grossAmount,
         shippingCost: shipping.cost,
         shippingZone: shipping.zone,
+        selectedOptions: options.selections,
         stockDeducted: true,
         notes: notes || null,
       },
@@ -128,7 +133,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
 
     await transaction.commit();
 
-    notifyTransactionProofReceived(newTransaction, merchandise.name).catch((err) => {
+    notifyTransactionProofReceived(newTransaction, formatItemName(merchandise.name, options.selections)).catch((err) => {
       console.error(`Failed to send proof-received notification for transaction ${newTransaction.id}:`, err.message);
     });
 

@@ -2,6 +2,7 @@ const { Transactions, Merchandises, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { restoreMerchandiseStock } = require('../payments/stockHelper');
+const { formatItemName } = require('../../utils/merchandiseOptions');
 const sendEmail = require('../../utils/mailer');
 const sendWhatsApp = require('../../utils/whatsapp');
 const { buildOrderStatusUrl } = require('../payments/templates/emailLayout');
@@ -109,7 +110,7 @@ const UpdateTransactions = async (id, body) => {
     await tx.commit();
 
     updatedRecord = record;
-    merchandiseName = record.merchandises?.name || `Merchandise #${record.merchandiseId}`;
+    merchandiseName = formatItemName(record.merchandises?.name || `Merchandise #${record.merchandiseId}`, record.selectedOptions);
 
     if (NOTIFY_STATUSES.has(status)) {
       notifyShippingStatusUpdate(updatedRecord, status, merchandiseName).catch((err) => {

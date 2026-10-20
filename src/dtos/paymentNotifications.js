@@ -1,3 +1,5 @@
+const { formatItemName } = require('../utils/merchandiseOptions');
+
 const orderStatusLabels = {
   waiting: 'Menunggu diproses',
   'on process': 'Diproses',
@@ -113,7 +115,10 @@ const toDonationNotification = (donation, facultiesById, lastReadAt) => {
  */
 const toTransactionNotification = (transaction, lastReadAt) => {
   const timestamp = getPaymentTimestamp(transaction);
-  const merchandiseName = transaction.merchandises?.name || `Merchandise #${transaction.merchandiseId || '-'}`;
+  const merchandiseName = formatItemName(
+    transaction.merchandises?.name || `Merchandise #${transaction.merchandiseId || '-'}`,
+    transaction.selectedOptions
+  );
   const statusLabel = orderStatusLabels[transaction.status] || transaction.status || 'Status belum jelas';
   const qtyLabel = transaction.qty ? ` x${transaction.qty}` : '';
 

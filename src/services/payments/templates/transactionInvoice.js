@@ -7,6 +7,7 @@ const {
   buildOrderStatusUrl,
 } = require('./emailLayout');
 const { TransactionDto } = require('../../../dtos/payments');
+const { formatItemName } = require('../../../utils/merchandiseOptions');
 
 /**
  * @typedef {import('../../../dtos/payments').TransactionDto} TransactionDto
@@ -28,8 +29,10 @@ const buildTransactionInvoice = async (trx) => {
   let price = 0;
   const merchandise = await Merchandises.findByPk(transactionDto.merchandiseId);
   if (merchandise) {
-    merchName = merchandise.name;
-    price = Number(merchandise.price);
+    merchName = formatItemName(merchandise.name, transactionDto.selectedOptions);
+    // Harga satuan termasuk tambahan harga opsi yang dipilih.
+    const extra = (transactionDto.selectedOptions || []).reduce((sum, s) => sum + Number(s.extraPrice || 0), 0);
+    price = Number(merchandise.price) + extra;
   }
   merchName = merchName || `Merchandise #${transactionDto.merchandiseId}`;
 

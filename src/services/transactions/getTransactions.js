@@ -37,6 +37,7 @@ const toPublicTransaction = (transaction) => {
     grossAmount: plain.grossAmount,
     shippingCost: plain.shippingCost,
     shippingZoneLabel: plain.shippingZoneLabel,
+    selectedOptions: plain.selectedOptions,
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
