@@ -1,5 +1,18 @@
 const { formatItemName, parseStored } = require('../utils/merchandiseOptions');
 
+// Baris isi pesanan dalam bentuk plain. Lihat services/transactions/orderItems.js.
+const itemLabel = (item) => formatItemName(item.merchandiseName || 'Merchandise', item.selectedOptions);
+const normalizeItems = (items) => (Array.isArray(items) ? items : [])
+  .map((item) => (typeof item?.get === 'function' ? item.get({ plain: true }) : item))
+  .filter(Boolean)
+  .map((item) => ({
+    merchandiseId: item.merchandiseId ?? null,
+    merchandiseName: item.merchandiseName || null,
+    unitPrice: toNumber(item.unitPrice) ?? 0,
+    qty: Number(item.qty || 0),
+    selectedOptions: parseStored(item.selectedOptions) || null,
+  }));
+
 const MIDTRANS_TO_PAYMENT_STATUS = {
   settlement: 'settlement',
   expire: 'expired',
@@ -246,6 +259,7 @@ class TransactionDto {
     this.shippingCost = toNumber(data.shippingCost);
     this.shippingZoneLabel = data.shippingZoneLabel || null;
     this.selectedOptions = parseStored(data.selectedOptions) || null;
+    this.items = normalizeItems(data.items);
     this.paidAt = data.paidAt || null;
     this.stockDeducted = Boolean(data.stockDeducted);
     this.updatedAt = data.updatedAt || null;
@@ -285,6 +299,7 @@ class TransactionDto {
       shippingCost: trx.shippingCost,
       shippingZoneLabel: trx.shippingZoneLabel,
       selectedOptions: trx.selectedOptions,
+      items: trx.items || (typeof trx.get === 'function' ? trx.get('items') : undefined),
       paidAt: trx.paidAt || null,
       stockDeducted: trx.stockDeducted,
       updatedAt: trx.updatedAt,
@@ -300,17 +315,47 @@ class TransactionDto {
   }
 
   getGrossAmount(unitPrice = 0) {
-    return this.grossAmount != null
-      ? this.grossAmount
-      : Number(unitPrice || 0) * this.qty + (this.shippingCost || 0);
+    if (this.grossAmount != null) return this.grossAmount;
+    if (this.items.length) {
+      return this.items.reduce((sum, i) => sum + i.unitPrice * i.qty, 0) + (this.shippingCost || 0);
+    }
+    return Number(unitPrice || 0) * this.qty + (this.shippingCost || 0);
+  }
+
+  // Isi pesanan; pesanan tanpa items memakai kolom header (satu produk).
+  getLines() {
+    if (this.items.length) return this.items;
+    return [{
+      merchandiseId: this.merchandiseId,
+      merchandiseName: this.merchandiseName,
+      unitPrice: null,
+      qty: this.qty,
+      // merchandiseName header sudah memuat opsi (formatItemName).
+      selectedOptions: null,
+    }];
+  }
+
+  getTotalQty() {
+    return this.getLines().reduce((sum, l) => sum + l.qty, 0);
+  }
+
+  // "Kaos (Size: XL) x 2" atau, untuk beberapa produk, daftar per baris.
+  getItemsText() {
+    const parts = this.getLines().map((l) => `${itemLabel(l)} x ${l.qty}`);
+    return parts.length <= 1 ? parts.join('') : parts.map((p) => `\n- ${p}`).join('');
   }
 
   toPaymentConfirmationPayload(transactionId) {
+    const lines = this.getLines();
+    const single = lines.length === 1;
     return {
       username: this.username,
       code: this.getOrderCode(),
-      merchandiseName: this.merchandiseName || 'Merchandise',
-      qty: this.qty,
+      merchandiseName: single
+        ? (this.items.length ? itemLabel(lines[0]) : this.merchandiseName) || 'Merchandise'
+        : `${lines.length} produk`,
+      qty: this.getTotalQty(),
+      items: this.getItemsText(),
       notes: this.notes || '',
       amount: Number(this.getGrossAmount() || 0).toLocaleString('id-ID'),
       transactionId,
@@ -319,6 +364,17 @@ class TransactionDto {
   }
 
   toInvoiceRows({ merchandiseName, unitPrice }) {
+    // Beberapa produk: satu baris per item ("2 x Rp 100.000").
+    const productRows = this.items.length > 1
+      ? this.items.map((item) => ({
+        label: itemLabel(item),
+        value: `${item.qty} x ${formatRupiah(item.unitPrice)}`,
+      }))
+      : [
+        { label: 'Produk', value: merchandiseName },
+        { label: 'Harga Satuan', value: unitPrice },
+        { label: 'Jumlah', value: `${this.qty} pcs` },
+      ];
     return [
       { label: 'Kode Transaksi', value: this.getOrderCode() },
       { label: 'Tanggal', value: this.updatedAt || this.createdAt },
@@ -327,12 +383,8 @@ class TransactionDto {
       { label: 'Email', value: this.email || '-' },
       { label: 'No. Telp', value: this.noTelp || '-' },
       { label: 'Alamat Pengiriman', value: this.address || '-' },
-      { label: 'Produk', value: merchandiseName },
-      // Catatan pembeli ditempatkan langsung di bawah Produk, konsisten
-      // dengan email status pesanan.
+      ...productRows,
       ...(this.notes ? [{ label: 'Catatan', value: this.notes }] : []),
-      { label: 'Harga Satuan', value: unitPrice },
-      { label: 'Jumlah', value: `${this.qty} pcs` },
       ...(this.shippingCost != null ? [{
         label: 'Ongkir',
         value: `${formatRupiah(this.shippingCost)}${this.shippingZoneLabel ? ` (${this.shippingZoneLabel})` : ''}`,

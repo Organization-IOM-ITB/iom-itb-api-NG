@@ -1,12 +1,18 @@
-const { Donations, Transactions, Merchandises, sequelize } = require('../../models');
+const { Donations, Transactions, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { snap } = require('../../utils/midtrans');
-const { decreaseMerchandiseStock, restoreMerchandiseStock } = require('./stockHelper');
 const { getDonationAmountBreakdown } = require('../donations/donationAmount');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
 const { resolveShipping } = require('../transactions/shippingQuote');
-const { resolveSelectedOptions, describeSelectedOptions } = require('../../utils/merchandiseOptions');
+const { describeSelectedOptions } = require('../../utils/merchandiseOptions');
+const {
+  parseOrderItems,
+  reserveOrderItems,
+  headerFromLines,
+  saveOrderItems,
+  releaseOrderStock,
+} = require('../transactions/orderItems');
 
 const SNAP_EXPIRY_HOURS = 24;
 
@@ -118,46 +124,27 @@ const createDonationSnapToken = async (payload) => {
 };
 
 const createTransactionSnapToken = async (payload) => {
-  const { merchandiseId, username, email, noTelp, address, qty, notes, selectedOptions } = payload;
+  const { username, email, noTelp, address, notes } = payload;
 
-  if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
+  if (!username || !email || !noTelp || !address) {
     throw new BaseError({
       status: StatusCodes.BAD_REQUEST,
-      message: 'merchandiseId, username, email, noTelp, address, and qty are required',
+      message: 'username, email, noTelp, and address are required',
     });
   }
 
-  const qtyNum = Number(qty);
-  if (!Number.isInteger(qtyNum) || qtyNum <= 0) {
-    throw new BaseError({ status: StatusCodes.BAD_REQUEST, message: 'qty must be a positive integer' });
-  }
-
+  const items = parseOrderItems(payload);
   const shipping = resolveShipping(address);
 
   let newTransaction;
   let grossAmount;
-  let merchandiseName;
-  let merchandisePrice;
-  let options;
+  let lines;
 
   const tx = await sequelize.transaction();
   try {
-    const merchandise = await Merchandises.findByPk(merchandiseId, {
-      transaction: tx,
-      lock: tx.LOCK.UPDATE,
-    });
-    if (!merchandise) {
-      throw new BaseError({ status: StatusCodes.NOT_FOUND, message: 'Merchandise not found' });
-    }
-
-    options = resolveSelectedOptions(merchandise.options, selectedOptions);
-
-    await decreaseMerchandiseStock({ merchandiseId, qty: qtyNum }, tx);
-
-    // Harga satuan sudah termasuk tambahan harga opsi (mis. XXL, lengan panjang).
-    merchandisePrice = Math.round(Number(merchandise.price)) + options.extraPrice;
-    merchandiseName = merchandise.name;
-    grossAmount = merchandisePrice * qtyNum + shipping.cost;
+    const reserved = await reserveOrderItems(items, tx);
+    lines = reserved.lines;
+    grossAmount = reserved.subtotal + shipping.cost;
 
     const expiredAt = new Date(Date.now() + SNAP_EXPIRY_HOURS * 60 * 60 * 1000);
 
@@ -166,8 +153,7 @@ const createTransactionSnapToken = async (payload) => {
       email,
       noTelp,
       address,
-      merchandiseId,
-      qty: qtyNum,
+      ...headerFromLines(lines),
       payment: null,
       publicToken: generateOrderTrackingToken(),
       status: 'waiting',
@@ -176,7 +162,6 @@ const createTransactionSnapToken = async (payload) => {
       grossAmount,
       shippingCost: shipping.cost,
       shippingZone: shipping.zone,
-      selectedOptions: options.selections,
       expiredAt,
       stockDeducted: true,
       notes: notes || null,
@@ -187,6 +172,7 @@ const createTransactionSnapToken = async (payload) => {
       { code, midtransOrderId: code },
       { transaction: tx }
     );
+    await saveOrderItems(newTransaction.id, lines, tx);
     await tx.commit();
 
     const parameter = {
@@ -200,19 +186,22 @@ const createTransactionSnapToken = async (payload) => {
         phone: noTelp,
         shipping_address: { address },
       },
-      item_details: [{
-        id: String(merchandiseId),
-        price: merchandisePrice,
-        quantity: qtyNum,
-        // Midtrans membatasi nama item 50 karakter.
-        name: [merchandiseName, describeSelectedOptions(options.selections)].filter(Boolean).join(' - ').slice(0, 50),
-      }, {
-        // Midtrans menolak bila jumlah item_details != gross_amount.
-        id: `shipping-${shipping.zone}`,
-        price: shipping.cost,
-        quantity: 1,
-        name: `Ongkir ${shipping.zoneLabel}`.slice(0, 50),
-      }],
+      item_details: [
+        ...lines.map((line, index) => ({
+          id: lines.length === 1 ? String(line.merchandiseId) : `${line.merchandiseId}-${index + 1}`,
+          price: line.unitPrice,
+          quantity: line.qty,
+          // Midtrans membatasi nama item 50 karakter.
+          name: [line.merchandiseName, describeSelectedOptions(line.selectedOptions)].filter(Boolean).join(' - ').slice(0, 50),
+        })),
+        {
+          // Midtrans menolak bila jumlah item_details != gross_amount.
+          id: `shipping-${shipping.zone}`,
+          price: shipping.cost,
+          quantity: 1,
+          name: `Ongkir ${shipping.zoneLabel}`.slice(0, 50),
+        },
+      ],
       expiry: {
         start_time: formatMidtransStartTime(),
         unit: 'hours',
@@ -235,7 +224,7 @@ const createTransactionSnapToken = async (payload) => {
     } catch (snapError) {
       const compensateTx = await sequelize.transaction();
       try {
-        await restoreMerchandiseStock({ merchandiseId, qty: qtyNum }, compensateTx);
+        await releaseOrderStock(newTransaction, compensateTx);
         await newTransaction.update(
           { stockDeducted: false, paymentStatus: 'failed', status: 'canceled' },
           { transaction: compensateTx }

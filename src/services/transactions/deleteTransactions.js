@@ -1,9 +1,9 @@
-const { Transactions, sequelize } = require('../../models');
+const { Transactions, TransactionItems, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const fs = require('fs');
 const path = require('path');
 const BaseError = require('../../schemas/responses/BaseError');
-const { restoreMerchandiseStock } = require('../payments/stockHelper');
+const { releaseOrderStock } = require('./orderItems');
 
 const DeleteTransactions = async (id) => {
   const transaction = await sequelize.transaction(); // Start a transaction
@@ -20,10 +20,7 @@ const DeleteTransactions = async (id) => {
     }
 
     if (transactionRecord.stockDeducted) {
-      await restoreMerchandiseStock(
-        { merchandiseId: transactionRecord.merchandiseId, qty: transactionRecord.qty },
-        transaction
-      );
+      await releaseOrderStock(transactionRecord, transaction);
     }
 
     if (transactionRecord.payment) {
@@ -35,7 +32,8 @@ const DeleteTransactions = async (id) => {
       }
     }
 
-    // Delete the transaction
+    // Delete the transaction (beserta item pesanannya)
+    await TransactionItems.destroy({ where: { transactionId: transactionRecord.id }, transaction });
     await transactionRecord.destroy({ transaction });
 
     // Commit the transaction

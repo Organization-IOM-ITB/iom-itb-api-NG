@@ -3,6 +3,7 @@ const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { TransactionDto } = require('../../dtos/payments');
 const { formatItemName } = require('../../utils/merchandiseOptions');
+const { attachItems } = require('./orderItems');
 const { notifyTransactionPaid } = require('../payments/processPaymentUpdate');
 
 // Konfirmasi pembayaran manual (transfer bank) oleh admin setelah memeriksa
@@ -59,8 +60,10 @@ const ConfirmManualPayment = async (id) => {
   }
 
   if (!alreadyConfirmed) {
-    const trxDto = TransactionDto.fromModel({ ...updatedRecord.toJSON(), merchandiseName });
-    notifyTransactionPaid(trxDto, updatedRecord.code || String(updatedRecord.id)).catch((err) => {
+    attachItems(updatedRecord).then(() => {
+      const trxDto = TransactionDto.fromModel({ ...updatedRecord.toJSON(), merchandiseName });
+      return notifyTransactionPaid(trxDto, updatedRecord.code || String(updatedRecord.id));
+    }).catch((err) => {
       console.error(`Failed to send payment-confirmed notification for transaction ${updatedRecord.id}:`, err.message);
     });
   }

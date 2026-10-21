@@ -57,6 +57,13 @@
  *                 type: string
  *               address:
  *                 type: string
+ *               items:
+ *                 type: string
+ *                 description: >
+ *                   Isi keranjang (string JSON):
+ *                   [{"merchandiseId":1,"qty":2,"selectedOptions":{"Size":"XL"}}].
+ *                   Bila kosong, dipakai merchandiseId + qty + selectedOptions (satu produk).
+ *                 example: '[{"merchandiseId":1,"qty":2,"selectedOptions":{"Size":"XL"}}]'
  *               merchandiseId:
  *                 type: string
  *               qty:

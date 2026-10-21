@@ -16,6 +16,11 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'merchandiseId',
         as: 'merchandises'
       });
+      this.hasMany(models.TransactionItems, {
+        foreignKey: 'transactionId',
+        as: 'items',
+        onDelete: 'CASCADE'
+      });
     }
   }
   
@@ -50,6 +55,8 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.TEXT,
       allowNull: false
     },
+    // merchandiseId/qty/selectedOptions = baris pertama pesanan, dipertahankan
+    // untuk kompatibilitas. Isi pesanan lengkap ada di TransactionItems (items).
     merchandiseId: {
       type: DataTypes.INTEGER,
       allowNull: false,

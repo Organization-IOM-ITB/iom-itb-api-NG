@@ -115,12 +115,17 @@ const toDonationNotification = (donation, facultiesById, lastReadAt) => {
  */
 const toTransactionNotification = (transaction, lastReadAt) => {
   const timestamp = getPaymentTimestamp(transaction);
-  const merchandiseName = formatItemName(
-    transaction.merchandises?.name || `Merchandise #${transaction.merchandiseId || '-'}`,
-    transaction.selectedOptions
-  );
+  const items = (typeof transaction.get === 'function' ? transaction.get('items') : transaction.items) || [];
+  const merchandiseName = items.length
+    ? formatItemName(items[0].merchandiseName, items[0].selectedOptions)
+    : formatItemName(
+      transaction.merchandises?.name || `Merchandise #${transaction.merchandiseId || '-'}`,
+      transaction.selectedOptions
+    );
   const statusLabel = orderStatusLabels[transaction.status] || transaction.status || 'Status belum jelas';
-  const qtyLabel = transaction.qty ? ` x${transaction.qty}` : '';
+  const firstQty = items.length ? items[0].qty : transaction.qty;
+  const qtyLabel = firstQty ? ` x${firstQty}` : '';
+  const moreLabel = items.length > 1 ? ` +${items.length - 1} produk lain` : '';
 
   return {
     id: `transaction-${transaction.id}`,
@@ -128,7 +133,7 @@ const toTransactionNotification = (transaction, lastReadAt) => {
     tone: transaction.status === 'waiting' ? 'amber' : 'blue',
     title: 'Merchandise dibayar',
     subject: transaction.username || transaction.email || transaction.code || 'Pembeli',
-    description: `${merchandiseName}${qtyLabel} · ${statusLabel}`,
+    description: `${merchandiseName}${qtyLabel}${moreLabel} · ${statusLabel}`,
     route: '/transactions',
     amountLabel: formatCurrency(transaction.grossAmount),
     timestamp,

@@ -2,6 +2,7 @@ const sendEmail = require('../../utils/mailer');
 const { DonationDto, TransactionDto } = require('../../dtos/payments');
 const buildDonationInvoice = require('./templates/donationInvoice');
 const buildTransactionInvoice = require('./templates/transactionInvoice');
+const { attachItems } = require('../transactions/orderItems');
 
 const ADMIN_EMAIL = process.env.INVOICE_ADMIN_EMAIL || 'rizkyfathur326@gmail.com';
 
@@ -18,6 +19,7 @@ const sendBuiltInvoice = async (invoice) => {
 };
 
 const sendTransactionInvoice = async (trx) => {
+  await attachItems(trx);
   const invoice = await buildTransactionInvoice(TransactionDto.fromModel(trx));
   return sendBuiltInvoice(invoice);
 };

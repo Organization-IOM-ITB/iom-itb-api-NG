@@ -7,6 +7,7 @@ const {
 } = require('./emailLayout');
 const { DONATION_TYPE_LABEL } = require('../../../dtos/payments');
 const { getRenderedEmailTemplate } = require('./templateRenderer');
+const { lineName } = require('../../transactions/orderItems');
 
 const escapeHtml = (value) => String(value ?? '')
   .replace(/&/g, '&amp;')
@@ -14,6 +15,15 @@ const escapeHtml = (value) => String(value ?? '')
   .replace(/>/g, '&gt;')
   .replace(/"/g, '&quot;')
   .replace(/'/g, '&#39;');
+
+// Isi sel "Produk": satu baris per item pesanan. Pemanggil lama yang masih
+// mengirim merchandiseName + qty tetap didukung.
+const renderProductCell = ({ lines, merchandiseName, qty }) => {
+  const list = Array.isArray(lines) && lines.length
+    ? lines.map((l) => `${lineName(l)} x ${l.qty}`)
+    : [`${merchandiseName} x ${qty}`];
+  return list.map(escapeHtml).join('<br>');
+};
 
 const titleCase = (value) => String(value || '')
   .split(/[_\s-]+/)
@@ -75,6 +85,7 @@ const buildTransactionPaymentEmail = async ({
   code,
   merchandiseName,
   qty,
+  items,
   amount,
   notes,
   transactionId,
@@ -86,6 +97,9 @@ const buildTransactionPaymentEmail = async ({
     code,
     merchandiseName,
     qty,
+    // Daftar isi pesanan; menggantikan "{{merchandiseName}} x {{qty}}" di
+    // template (lihat expandItemsPlaceholder).
+    items: items ?? `${merchandiseName} x ${qty}`,
     amount,
     notes: notes || '',
     // Template DB hanya mendukung substitusi {{var}} tanpa kondisional,
@@ -132,7 +146,7 @@ Terima kasih telah berbelanja di IOM ITB!`,
   };
 };
 
-const buildTransactionProofReceivedEmail = ({ username, code, merchandiseName, qty, amount, shippingCost, notes, transactionId, orderStatusToken, orderStatusUrl }) => ({
+const buildTransactionProofReceivedEmail = ({ username, code, lines, merchandiseName, qty, amount, shippingCost, notes, transactionId, orderStatusToken, orderStatusUrl }) => ({
   subject: 'Bukti Pembayaran Diterima — IOM ITB',
   html: `
 <div style="font-family:Arial,sans-serif;max-width:600px;margin:0 auto;padding:24px;border:1px solid #e5e7eb;border-radius:8px;">
@@ -146,7 +160,7 @@ const buildTransactionProofReceivedEmail = ({ username, code, merchandiseName, q
   <p>Terima kasih, kami telah menerima bukti pembayaran Anda. Tim IOM ITB akan memverifikasi pembayaran dalam 1x24 jam.</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0;">
     <tr><td style="padding:8px 0;color:#6b7280;">Kode Pesanan</td><td style="padding:8px 0;font-weight:bold;">${code}</td></tr>
-    <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${merchandiseName} x ${qty}</td></tr>
+    <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${renderProductCell({ lines, merchandiseName, qty })}</td></tr>
     ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
     ${shippingCost != null ? `<tr><td style="padding:8px 0;color:#6b7280;">Ongkir</td><td style="padding:8px 0;">Rp ${shippingCost}</td></tr>` : ''}
     <tr><td style="padding:8px 0;color:#6b7280;">Total</td><td style="padding:8px 0;font-weight:bold;color:#16a34a;">Rp ${amount}</td></tr>
@@ -191,7 +205,7 @@ const SHIPPING_STATUS_COPY = {
   },
 };
 
-const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, qty, address, notes, status, transactionId, orderStatusToken, orderStatusUrl }) => {
+const buildTransactionShippingStatusEmail = ({ username, code, lines, merchandiseName, qty, address, notes, status, transactionId, orderStatusToken, orderStatusUrl }) => {
   const copy = SHIPPING_STATUS_COPY[status] || {
     title: 'Update Status Pesanan',
     headline: `Status pesanan Anda diperbarui menjadi: ${status}`,
@@ -212,7 +226,7 @@ const buildTransactionShippingStatusEmail = ({ username, code, merchandiseName, 
   <p>${copy.body}</p>
   <table style="width:100%;border-collapse:collapse;margin:16px 0;">
     <tr><td style="padding:8px 0;color:#6b7280;">Kode Pesanan</td><td style="padding:8px 0;font-weight:bold;">${code}</td></tr>
-    <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${merchandiseName} x ${qty}</td></tr>
+    <tr><td style="padding:8px 0;color:#6b7280;">Produk</td><td style="padding:8px 0;">${renderProductCell({ lines, merchandiseName, qty })}</td></tr>
     ${notes ? `<tr><td style="padding:8px 0;color:#6b7280;vertical-align:top;">Catatan</td><td style="padding:8px 0;white-space:pre-line;">${escapeHtml(notes)}</td></tr>` : ''}
     <tr><td style="padding:8px 0;color:#6b7280;">Status Saat Ini</td><td style="padding:8px 0;font-weight:bold;color:#1d4ed8;text-transform:capitalize;">${status}</td></tr>
     <tr><td style="padding:8px 0;color:#6b7280;">Alamat Pengiriman</td><td style="padding:8px 0;">${address}</td></tr>

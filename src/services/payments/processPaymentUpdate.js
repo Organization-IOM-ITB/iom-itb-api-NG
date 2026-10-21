@@ -4,7 +4,8 @@ const sendEmail = require('../../utils/mailer');
 const sendWhatsApp = require('../../utils/whatsapp');
 const { normalizeWhatsAppRecipient } = require('../../utils/whatsappPhone');
 const { buildOrderStatusUrl } = require('./templates/emailLayout');
-const { restoreMerchandiseStock } = require('./stockHelper');
+const { releaseOrderStock, attachItems } = require('../transactions/orderItems');
+const { expandItemsPlaceholder } = require('./templates/templateRenderer');
 const {
   buildDonationPaymentEmail,
   buildTransactionPaymentEmail,
@@ -12,7 +13,7 @@ const {
 
 const getWaMessage = async (key, data, fallback) => {
   const template = await EmailTemplate.findOne({ where: { key, isActive: true } });
-  const body = template?.body || fallback;
+  const body = expandItemsPlaceholder(template?.body || fallback, data);
   return body.replace(/{{\s*(\w+)\s*}}/g, (_, k) => data[k] ?? '');
 };
 
@@ -93,13 +94,14 @@ const notifyTransactionPaid = async (trx, transactionId) => {
           username: trx.username,
           code: confirmationPayload.code,
           merchandise_name: confirmationPayload.merchandiseName,
-          qty: trx.qty,
+          qty: confirmationPayload.qty,
+          items: confirmationPayload.items,
           notes: trx.notes || '',
           notes_block: trx.notes ? `Catatan: ${trx.notes}` : '',
           amount: confirmationPayload.amount,
           order_status_url: orderStatusUrl,
         },
-        `Halo ${trx.username}!\n\nPembayaran pesanan Anda telah berhasil!\n\nKode Pesanan: ${confirmationPayload.code}\nProduk: ${confirmationPayload.merchandiseName} x ${trx.qty}${trx.notes ? `\nCatatan: ${trx.notes}` : ''}\nTotal: Rp ${confirmationPayload.amount}\n\nPesanan Anda sedang diproses. Pantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`
+        `Halo ${trx.username}!\n\nPembayaran pesanan Anda telah berhasil!\n\nKode Pesanan: ${confirmationPayload.code}\nProduk: ${confirmationPayload.items}${trx.notes ? `\nCatatan: ${trx.notes}` : ''}\nTotal: Rp ${confirmationPayload.amount}\n\nPesanan Anda sedang diproses. Pantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`
       );
       tasks.push(
         sendWhatsApp(
@@ -222,15 +224,13 @@ const processTransactionPayment = async (notification) => {
     } else if (notification.isFailed) {
       updates.status = 'canceled';
       if (trx.stockDeducted) {
-        await restoreMerchandiseStock(
-          { merchandiseId: trx.merchandiseId, qty: trx.qty },
-          transaction
-        );
+        await releaseOrderStock(trx, transaction);
         updates.stockDeducted = false;
       }
     }
 
     await trx.update(updates, { transaction });
+    await attachItems(trx, transaction);
     transactionDto = TransactionDto.fromModel(trx);
     shouldNotifyPaid = notification.isPaid && previousPaymentStatus !== 'settlement';
   });

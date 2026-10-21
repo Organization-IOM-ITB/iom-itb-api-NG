@@ -39,13 +39,26 @@ const dropEmptyPlaceholderLines = (template, data) => String(template || '')
   })
   .join('\n');
 
+/**
+ * Template pesanan di DB ditulis untuk satu produk: "{{merchandiseName}} x {{qty}}"
+ * (email) atau "{{merchandise_name}} x {{qty}}" (WhatsApp). Bila data membawa
+ * `items` (daftar isi pesanan), pola itu diganti {{items}} agar pesanan
+ * berisi beberapa produk tampil lengkap tanpa perlu mengubah template.
+ */
+const ITEMS_PATTERN = /{{\s*(?:merchandiseName|merchandise_name)\s*}}\s*x\s*{{\s*qty\s*}}/g;
+const expandItemsPlaceholder = (template, data) => (
+  data && data.items != null
+    ? String(template || '').replace(ITEMS_PATTERN, '{{items}}')
+    : String(template || '')
+);
+
 const getRenderedEmailTemplate = async (key, data, fallback) => {
   const template = await EmailTemplate.findOne({
     where: { key, isActive: true },
   });
 
   const subject = template?.subject || fallback.subject;
-  const body = dropEmptyPlaceholderLines(template?.body || fallback.body, data);
+  const body = dropEmptyPlaceholderLines(expandItemsPlaceholder(template?.body || fallback.body, data), data);
 
   return {
     subject: replaceVariables(subject, data),
@@ -57,4 +70,5 @@ module.exports = {
   getRenderedEmailTemplate,
   replaceVariables,
   dropEmptyPlaceholderLines,
+  expandItemsPlaceholder,
 };

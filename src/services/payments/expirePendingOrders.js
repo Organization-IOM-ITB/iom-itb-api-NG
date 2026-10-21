@@ -1,6 +1,6 @@
 const { Op } = require('sequelize');
 const { Transactions, Donations, sequelize } = require('../../models');
-const { restoreMerchandiseStock } = require('./stockHelper');
+const { releaseOrderStock } = require('../transactions/orderItems');
 
 const DEFAULT_TTL_HOURS = 24;
 
@@ -35,10 +35,7 @@ const expirePendingOrders = async ({ ttlHours = DEFAULT_TTL_HOURS } = {}) => {
       };
 
       if (fresh.stockDeducted) {
-        await restoreMerchandiseStock(
-          { merchandiseId: fresh.merchandiseId, qty: fresh.qty },
-          t
-        );
+        await releaseOrderStock(fresh, t);
         updates.stockDeducted = false;
         stats.stockRestored += 1;
       }

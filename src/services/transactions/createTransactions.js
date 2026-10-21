@@ -1,27 +1,32 @@
-const { Transactions, Merchandises, sequelize } = require('../../models');
+const { Transactions, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
-const { decreaseMerchandiseStock } = require('../payments/stockHelper');
 const sendEmail = require('../../utils/mailer');
 const sendWhatsApp = require('../../utils/whatsapp');
 const { buildTransactionProofReceivedEmail } = require('../payments/templates/paymentConfirmation');
 const { buildOrderStatusUrl } = require('../payments/templates/emailLayout');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
 const { resolveShipping } = require('./shippingQuote');
-const { resolveSelectedOptions, formatItemName } = require('../../utils/merchandiseOptions');
+const {
+  parseOrderItems,
+  reserveOrderItems,
+  headerFromLines,
+  saveOrderItems,
+  formatOrderLines,
+} = require('./orderItems');
 const fs = require('fs');
 const path = require('path');
 
 const formatIDR = (n) => Number(n || 0).toLocaleString('id-ID');
 
-const notifyTransactionProofReceived = async (trx, merchandiseName) => {
+const notifyTransactionProofReceived = async (trx, lines) => {
   const amount = formatIDR(trx.grossAmount);
   const shippingLine = trx.shippingCost != null ? `Ongkir: Rp ${formatIDR(trx.shippingCost)}\n` : '';
   const orderStatusUrl = buildOrderStatusUrl(trx.publicToken);
   const tasks = [];
 
   if (trx.noTelp) {
-    const message = `Halo ${trx.username}!\n\nBukti pembayaran Anda telah kami terima.\n\nKode Pesanan: ${trx.code}\nProduk: ${merchandiseName} x ${trx.qty}\n${shippingLine}Total: Rp ${amount}\n\nTim IOM ITB akan memverifikasi pembayaran dalam 1x24 jam. Anda dapat memantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`;
+    const message = `Halo ${trx.username}!\n\nBukti pembayaran Anda telah kami terima.\n\nKode Pesanan: ${trx.code}\nProduk: ${formatOrderLines(lines)}\n${shippingLine}Total: Rp ${amount}\n\nTim IOM ITB akan memverifikasi pembayaran dalam 1x24 jam. Anda dapat memantau status pesanan melalui tautan berikut:\n${orderStatusUrl}\n\nSalam,\nIOM ITB`;
     tasks.push(
       sendWhatsApp(
         trx.noTelp,
@@ -36,8 +41,7 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
     const email = buildTransactionProofReceivedEmail({
       username: trx.username,
       code: trx.code,
-      merchandiseName,
-      qty: trx.qty,
+      lines,
       amount,
       shippingCost: trx.shippingCost != null ? formatIDR(trx.shippingCost) : null,
       notes: trx.notes,
@@ -60,50 +64,28 @@ const notifyTransactionProofReceived = async (trx, merchandiseName) => {
 
 const CreateTransaction = async (body, files, uploadPath) => {
   const imageFile = files && files['payment'] ? files['payment'][0] : null;
-  const { merchandiseId, username, email, noTelp, address, qty, notes, selectedOptions } = body;
-
-  if (!merchandiseId || !username || !email || !noTelp || !address || qty == null) {
-    throw new BaseError({
-      status: StatusCodes.BAD_REQUEST,
-      message: 'Merchandise ID, username, email, noTelp, address, and qty are required fields',
-    });
-  }
-
-  const qtyNum = Number(qty);
-  if (!Number.isInteger(qtyNum) || qtyNum <= 0) {
-    throw new BaseError({
-      status: StatusCodes.BAD_REQUEST,
-      message: 'qty must be a positive integer',
-    });
-  }
+  const { username, email, noTelp, address, notes } = body;
 
   const transaction = await sequelize.transaction();
   try {
-    // Di dalam try agar bukti bayar yang sudah terunggah ikut dihapus bila
-    // alamat tidak dikenali.
-    const shipping = resolveShipping(address);
-
-    const merchandise = await Merchandises.findByPk(merchandiseId, {
-      transaction,
-      lock: transaction.LOCK.UPDATE,
-    });
-    if (!merchandise) {
+    // Validasi di dalam try agar bukti bayar yang sudah terunggah ikut
+    // dihapus bila input/alamat tidak valid.
+    if (!username || !email || !noTelp || !address) {
       throw new BaseError({
-        status: StatusCodes.NOT_FOUND,
-        message: 'Merchandise not found',
+        status: StatusCodes.BAD_REQUEST,
+        message: 'username, email, noTelp, and address are required fields',
       });
     }
+    const items = parseOrderItems(body);
+    const shipping = resolveShipping(address);
 
-    const options = resolveSelectedOptions(merchandise.options, selectedOptions);
-
-    await decreaseMerchandiseStock({ merchandiseId, qty: qtyNum }, transaction);
+    const { lines, subtotal } = await reserveOrderItems(items, transaction);
 
     // Multer (middlewares/multer.js) actually saves uploaded files to
     // src/uploads/, served statically at the /uploads prefix (see app.js) —
     // not /public/images/transactions, which nothing ever writes to.
     const imageFileName = imageFile ? `${uploadPath}/uploads/${imageFile.filename}` : null;
-    const unitPrice = Number(merchandise.price) + options.extraPrice;
-    const grossAmount = unitPrice * qtyNum + shipping.cost;
+    const grossAmount = subtotal + shipping.cost;
 
     const newTransaction = await Transactions.create(
       {
@@ -111,8 +93,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
         email,
         noTelp,
         address,
-        merchandiseId,
-        qty: qtyNum,
+        ...headerFromLines(lines),
         payment: imageFileName,
         publicToken: generateOrderTrackingToken(),
         status: 'waiting',
@@ -121,7 +102,6 @@ const CreateTransaction = async (body, files, uploadPath) => {
         grossAmount,
         shippingCost: shipping.cost,
         shippingZone: shipping.zone,
-        selectedOptions: options.selections,
         stockDeducted: true,
         notes: notes || null,
       },
@@ -130,10 +110,11 @@ const CreateTransaction = async (body, files, uploadPath) => {
 
     newTransaction.code = `IOM-${Date.now()}-${newTransaction.id}`;
     await newTransaction.save({ transaction });
+    await saveOrderItems(newTransaction.id, lines, transaction);
 
     await transaction.commit();
 
-    notifyTransactionProofReceived(newTransaction, formatItemName(merchandise.name, options.selections)).catch((err) => {
+    notifyTransactionProofReceived(newTransaction, lines).catch((err) => {
       console.error(`Failed to send proof-received notification for transaction ${newTransaction.id}:`, err.message);
     });
 

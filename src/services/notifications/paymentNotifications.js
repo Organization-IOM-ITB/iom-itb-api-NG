@@ -6,6 +6,7 @@ const {
   PaymentNotificationReads,
   Transactions,
 } = require('../../models');
+const { attachItems } = require('../transactions/orderItems');
 const {
   comparePaymentNotificationsByTime,
   toDonationNotification,
@@ -101,6 +102,7 @@ const fetchRecentSources = async () => {
     }),
   ]);
 
+  await attachItems(transactions);
   return { donations, transactions };
 };
 

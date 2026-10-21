@@ -1,5 +1,6 @@
-const { Transactions, Merchandises } = require('../../models');
+const { Transactions, Merchandises, sequelize } = require('../../models');
 const { Op } = require('sequelize');
+const { attachItems } = require('./orderItems');
 
 const maskEmail = (email) => {
   if (!email || !String(email).includes('@')) return email || null;
@@ -38,6 +39,14 @@ const toPublicTransaction = (transaction) => {
     shippingCost: plain.shippingCost,
     shippingZoneLabel: plain.shippingZoneLabel,
     selectedOptions: plain.selectedOptions,
+    items: (plain.items || []).map((item) => ({
+      merchandiseId: item.merchandiseId,
+      merchandiseName: item.merchandiseName,
+      image: item.merchandise?.image || null,
+      unitPrice: item.unitPrice,
+      qty: item.qty,
+      selectedOptions: item.selectedOptions,
+    })),
     createdAt: plain.createdAt,
     updatedAt: plain.updatedAt,
   };
@@ -59,6 +68,7 @@ const GetTransactions = async (key, query = {}, search = '') => {
       if (!transaction) {
         throw new Error(`Transaction with id ${key.id} not found`);
       }
+      await attachItems(transaction);
       return { data: transaction }; // Return transaction details
     } catch (error) {
       throw new Error(`Failed to retrieve transaction data: ${error.message}`);
@@ -82,6 +92,7 @@ const GetTransactions = async (key, query = {}, search = '') => {
         throw error;
       }
 
+      await attachItems(transaction);
       return { data: toPublicTransaction(transaction) };
     } catch (error) {
       if (error.status) throw error;
@@ -103,7 +114,8 @@ const GetTransactions = async (key, query = {}, search = '') => {
       if (!transaction) {
         throw new Error(`Transaction with code ${key.code} not found`);
       }
-      
+      await attachItems(transaction);
+
       return { data: transaction };  // Return transaction details
     } catch (error) {
       throw new Error(`Failed to retrieve transaction data: ${error.message}`);
@@ -148,6 +160,14 @@ const GetTransactions = async (key, query = {}, search = '') => {
       { email: { [Op.like]: `%${searchKeyword}%` } },
       { noTelp: { [Op.like]: `%${searchKeyword}%` } },
       { '$merchandises.name$': { [Op.like]: `%${searchKeyword}%` } },
+      // Produk lain di keranjang (bukan hanya baris pertama/header).
+      {
+        id: {
+          [Op.in]: sequelize.literal(
+            `(SELECT transactionId FROM TransactionItems WHERE merchandiseName LIKE ${sequelize.escape(`%${searchKeyword}%`)})`
+          ),
+        },
+      },
     ];
   }
 
@@ -167,6 +187,7 @@ const GetTransactions = async (key, query = {}, search = '') => {
       countWith({ paymentStatus: 'settlement' }),
       countWith({ status: { [Op.in]: ['waiting', 'on process'] } }),
     ]);
+    await attachItems(rows);
 
     return {
       data: rows,
