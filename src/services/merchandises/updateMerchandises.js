@@ -2,6 +2,7 @@ const { Merchandises, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { normalizeOptionsDefinition } = require('../../utils/merchandiseOptions');
+const { normalizeWeight } = require('../../utils/merchandiseWeight');
 const fs = require('fs');
 const path = require('path');
 
@@ -18,9 +19,9 @@ const UpdateMerchandises = async (id, body) => {
       });
     }
 
-    const { name, price, stock, image, link, kategori, hpp, options } = body;
+    const { name, price, stock, image, link, kategori, hpp, options, weight } = body;
 
-    if (!name && !price && !stock && !image && !link && hpp === undefined && options === undefined) {
+    if (!name && !price && !stock && !image && !link && hpp === undefined && options === undefined && weight === undefined) {
       throw new BaseError({
         status: StatusCodes.BAD_REQUEST,
         message: 'At least one of name, price, stock or image must be provided for update',
@@ -39,6 +40,7 @@ const UpdateMerchandises = async (id, body) => {
         kategori: kategori !== undefined ? kategori : merchandise.kategori,
         hpp: hpp !== undefined ? hpp : merchandise.hpp,
         options: options !== undefined ? normalizeOptionsDefinition(options) : merchandise.options,
+        weight: weight !== undefined ? normalizeWeight(weight) : merchandise.weight,
       },
       {
         where: { id },

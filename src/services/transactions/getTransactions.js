@@ -38,6 +38,8 @@ const toPublicTransaction = (transaction) => {
     grossAmount: plain.grossAmount,
     shippingCost: plain.shippingCost,
     shippingZoneLabel: plain.shippingZoneLabel,
+    shippingWeight: plain.shippingWeight,
+    shippingBilledKg: plain.shippingBilledKg,
     selectedOptions: plain.selectedOptions,
     items: (plain.items || []).map((item) => ({
       merchandiseId: item.merchandiseId,

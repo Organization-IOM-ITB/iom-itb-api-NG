@@ -258,6 +258,7 @@ class TransactionDto {
     this.grossAmount = toNumber(data.grossAmount);
     this.shippingCost = toNumber(data.shippingCost);
     this.shippingZoneLabel = data.shippingZoneLabel || null;
+    this.shippingBilledKg = toNumber(data.shippingBilledKg) ?? null;
     this.selectedOptions = parseStored(data.selectedOptions) || null;
     this.items = normalizeItems(data.items);
     this.paidAt = data.paidAt || null;
@@ -298,6 +299,7 @@ class TransactionDto {
       grossAmount: trx.grossAmount,
       shippingCost: trx.shippingCost,
       shippingZoneLabel: trx.shippingZoneLabel,
+      shippingBilledKg: trx.shippingBilledKg,
       selectedOptions: trx.selectedOptions,
       items: trx.items || (typeof trx.get === 'function' ? trx.get('items') : undefined),
       paidAt: trx.paidAt || null,
@@ -387,7 +389,9 @@ class TransactionDto {
       ...(this.notes ? [{ label: 'Catatan', value: this.notes }] : []),
       ...(this.shippingCost != null ? [{
         label: 'Ongkir',
-        value: `${formatRupiah(this.shippingCost)}${this.shippingZoneLabel ? ` (${this.shippingZoneLabel})` : ''}`,
+        value: `${formatRupiah(this.shippingCost)}${this.shippingZoneLabel || this.shippingBilledKg
+          ? ` (${[this.shippingZoneLabel, this.shippingBilledKg ? `${this.shippingBilledKg} kg` : null].filter(Boolean).join(', ')})`
+          : ''}`,
       }] : []),
     ];
   }

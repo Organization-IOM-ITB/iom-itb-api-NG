@@ -10,6 +10,12 @@ const { StatusCodes } = require('http-status-codes');
 const { Merchandises, TransactionItems } = require('../../models');
 const BaseError = require('../../schemas/responses/BaseError');
 const { resolveSelectedOptions, formatItemName } = require('../../utils/merchandiseOptions');
+const { DEFAULT_ITEM_WEIGHT_GRAMS } = require('../../utils/shippingRates');
+
+// Berat per pcs (gram) untuk ongkir.
+const itemWeight = (merchandise) => (
+  merchandise.weight != null ? Number(merchandise.weight) : DEFAULT_ITEM_WEIGHT_GRAMS
+);
 
 const MAX_ITEMS = 20;
 
@@ -52,7 +58,7 @@ const parseOrderItems = (body = {}) => {
  * Kunci produk, validasi opsi, hitung harga, lalu kurangi stok — semua di
  * dalam DB transaction `t`. Bila satu produk gagal, seluruh pesanan gagal.
  * Baris dengan produk + opsi yang sama digabung.
- * @returns {Promise<{ lines: Array, subtotal: number }>}
+ * @returns {Promise<{ lines: Array, subtotal: number, weightGrams: number }>}
  */
 const reserveOrderItems = async (items, t) => {
   // Kunci berurutan berdasarkan id agar dua checkout bersamaan tidak deadlock.
@@ -82,6 +88,7 @@ const reserveOrderItems = async (items, t) => {
       merchandiseName: merchandise.name,
       // Harga satuan sudah termasuk tambahan harga opsi (mis. XXL, lengan panjang).
       unitPrice: Math.round(Number(merchandise.price)) + options.extraPrice,
+      unitWeight: itemWeight(merchandise),
       qty: item.qty,
       selectedOptions: options.selections,
     });
@@ -107,6 +114,7 @@ const reserveOrderItems = async (items, t) => {
   return {
     lines: cleanLines,
     subtotal: cleanLines.reduce((sum, l) => sum + l.unitPrice * l.qty, 0),
+    weightGrams: cleanLines.reduce((sum, l) => sum + l.unitWeight * l.qty, 0),
   };
 };
 

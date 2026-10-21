@@ -6,9 +6,9 @@ const UNKNOWN_ADDRESS_MESSAGE = 'Kota/kabupaten pada alamat belum dikenali untuk
   + 'Lengkapi alamat sampai nama kota/kabupaten dan provinsi.';
 
 // Ongkir wajib terhitung sebelum pesanan dibuat; total yang dibayar pembeli
-// = harga x qty + ongkir.
-const resolveShipping = (address) => {
-  const quote = quoteShipping(address);
+// = Σ harga x qty + ongkir (berdasarkan total berat).
+const resolveShipping = (address, weightGrams) => {
+  const quote = quoteShipping(address, weightGrams);
   if (!quote) {
     throw new BaseError({ status: StatusCodes.BAD_REQUEST, message: UNKNOWN_ADDRESS_MESSAGE });
   }

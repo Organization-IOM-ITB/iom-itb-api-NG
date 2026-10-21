@@ -21,7 +21,8 @@ const formatIDR = (n) => Number(n || 0).toLocaleString('id-ID');
 
 const notifyTransactionProofReceived = async (trx, lines) => {
   const amount = formatIDR(trx.grossAmount);
-  const shippingLine = trx.shippingCost != null ? `Ongkir: Rp ${formatIDR(trx.shippingCost)}\n` : '';
+  const weightNote = trx.shippingBilledKg ? ` (${trx.shippingBilledKg} kg)` : '';
+  const shippingLine = trx.shippingCost != null ? `Ongkir: Rp ${formatIDR(trx.shippingCost)}${weightNote}\n` : '';
   const orderStatusUrl = buildOrderStatusUrl(trx.publicToken);
   const tasks = [];
 
@@ -43,7 +44,7 @@ const notifyTransactionProofReceived = async (trx, lines) => {
       code: trx.code,
       lines,
       amount,
-      shippingCost: trx.shippingCost != null ? formatIDR(trx.shippingCost) : null,
+      shippingCost: trx.shippingCost != null ? `${formatIDR(trx.shippingCost)}${weightNote}` : null,
       notes: trx.notes,
       transactionId: trx.id,
       orderStatusToken: trx.publicToken,
@@ -77,9 +78,10 @@ const CreateTransaction = async (body, files, uploadPath) => {
       });
     }
     const items = parseOrderItems(body);
-    const shipping = resolveShipping(address);
+    resolveShipping(address); // tolak alamat tak dikenal sebelum mengunci stok
 
-    const { lines, subtotal } = await reserveOrderItems(items, transaction);
+    const { lines, subtotal, weightGrams } = await reserveOrderItems(items, transaction);
+    const shipping = resolveShipping(address, weightGrams);
 
     // Multer (middlewares/multer.js) actually saves uploaded files to
     // src/uploads/, served statically at the /uploads prefix (see app.js) —
@@ -102,6 +104,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
         grossAmount,
         shippingCost: shipping.cost,
         shippingZone: shipping.zone,
+        shippingWeight: weightGrams,
         stockDeducted: true,
         notes: notes || null,
       },

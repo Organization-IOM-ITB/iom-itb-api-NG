@@ -1,4 +1,10 @@
-// Ongkos kirim merchandise: tarif flat per pesanan, per wilayah tujuan.
+// Ongkos kirim merchandise: per wilayah tujuan, berdasarkan berat pesanan.
+//
+// Ongkir = tarif 1 kg pertama (`cost`) + (kg ditagih − 1) × `extraPerKg`.
+// Kg ditagih = total berat (Σ berat produk × qty, gram, sudah termasuk
+// kemasan) dibulatkan ke atas bila sisa > 300 g, minimal 1 kg — mengikuti
+// aturan umum kurir reguler (JNE/J&T). Tarif per kg berikutnya sama dengan kg
+// pertama karena tarif kurir reguler linear per kg.
 //
 // Wilayah ditentukan dari teks alamat pembeli:
 // 1. Cari nama kota/kabupaten/provinsi yang dikenal di alamat. Alamat ditulis
@@ -11,55 +17,70 @@
 //
 // Tabel tarif: SHIPPING_ZONES. Ubah di sini kalau tarif berubah.
 
+// Berat produk yang belum diisi admin.
+const DEFAULT_ITEM_WEIGHT_GRAMS = 500;
+// Sisa berat di atas kg bulat yang masih dibulatkan ke bawah.
+const WEIGHT_TOLERANCE_GRAMS = 300;
+
 const SHIPPING_ZONES = {
   bandung: {
     label: 'Bandung',
     cost: 10000,
+    extraPerKg: 10000,
     anchors: [[-6.917, 107.619]],
   },
   jabodetabek: {
     label: 'Jabodetabek dan sekitarnya',
     cost: 15000,
+    extraPerKg: 15000,
     anchors: [[-6.2, 106.817]],
   },
   priangan_timur: {
     label: 'Garut, Tasikmalaya, Priangan Timur',
     cost: 15000,
+    extraPerKg: 15000,
     anchors: [[-7.327, 108.22], [-7.217, 107.9]],
   },
   jateng_jatim: {
     label: 'Jawa Tengah dan Jawa Timur',
     cost: 25000,
+    extraPerKg: 25000,
     anchors: [[-6.99, 110.42], [-7.566, 110.817], [-7.25, 112.75]],
   },
   sumsel: {
     label: 'Sumatera Selatan',
     cost: 25000,
+    extraPerKg: 25000,
     anchors: [[-2.976, 104.775]],
   },
   sumut: {
     label: 'Sumatera Utara',
     cost: 70000,
+    extraPerKg: 70000,
     anchors: [[3.595, 98.672]],
   },
   balikpapan: {
     label: 'Balikpapan',
     cost: 60000,
+    extraPerKg: 60000,
     anchors: [[-1.265, 116.831]],
   },
   batam: {
     label: 'Batam',
     cost: 45000,
+    extraPerKg: 45000,
     anchors: [[1.045, 104.03]],
   },
   aceh: {
     label: 'Aceh',
     cost: 70000,
+    extraPerKg: 70000,
     anchors: [[5.55, 95.317]],
   },
   palu: {
     label: 'Palu',
     cost: 90000,
+    extraPerKg: 90000,
     anchors: [[-0.9, 119.87]],
   },
 };
@@ -504,14 +525,27 @@ const isLater = (a, b) => (
 const latest = (matches) => matches.reduce((best, m) => (!best || isLater(m, best) ? m : best), null);
 
 /**
- * Hitung ongkir dari teks alamat.
+ * Kg yang ditagih dari total berat (gram). Berat tidak diketahui → 1 kg.
+ * @param {number|null|undefined} weightGrams
+ */
+const billableKg = (weightGrams) => {
+  const grams = Math.max(0, Math.round(Number(weightGrams) || 0));
+  const whole = Math.floor(grams / 1000);
+  const rest = grams % 1000;
+  return Math.max(1, whole + (rest > WEIGHT_TOLERANCE_GRAMS ? 1 : 0));
+};
+
+/**
+ * Hitung ongkir dari teks alamat dan total berat pesanan.
  *
  * @param {string} address
- * @returns {{ zone: string, zoneLabel: string, cost: number, matchedPlace: string, byNearest: boolean } | null}
+ * @param {number} [weightGrams] total berat (gram); kosong = 1 kg
+ * @returns {{ zone: string, zoneLabel: string, cost: number, baseCost: number, extraPerKg: number,
+ *   weightGrams: number|null, billedKg: number, matchedPlace: string, byNearest: boolean } | null}
  *   null bila tidak ada kota/provinsi yang dikenali (atau hanya "Jawa Barat"
  *   tanpa kota) — pembeli perlu melengkapi alamat.
  */
-const quoteShipping = (address) => {
+const quoteShipping = (address, weightGrams) => {
   const matches = findMatches(normalizeAddress(address));
   if (!matches.length) return null;
 
@@ -532,10 +566,15 @@ const quoteShipping = (address) => {
   }
 
   const zone = SHIPPING_ZONES[zoneId];
+  const billedKg = billableKg(weightGrams);
   return {
     zone: zoneId,
     zoneLabel: zone.label,
-    cost: zone.cost,
+    cost: zone.cost + (billedKg - 1) * zone.extraPerKg,
+    baseCost: zone.cost,
+    extraPerKg: zone.extraPerKg,
+    weightGrams: weightGrams != null && Number.isFinite(Number(weightGrams)) ? Math.round(Number(weightGrams)) : null,
+    billedKg,
     matchedPlace: city ? `${city.name}, ${province.name}` : province.name,
     byNearest,
   };
@@ -543,5 +582,7 @@ const quoteShipping = (address) => {
 
 module.exports = {
   SHIPPING_ZONES,
+  DEFAULT_ITEM_WEIGHT_GRAMS,
+  billableKg,
   quoteShipping,
 };

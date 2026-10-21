@@ -61,6 +61,12 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.STRING,
       allowNull: true
     },
+    // Berat per pcs dalam gram, termasuk kemasan (untuk ongkir). NULL =
+    // belum diisi → DEFAULT_ITEM_WEIGHT_GRAMS di utils/shippingRates.js.
+    weight: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
     // Opsi pilihan pembeli (Warna/Lengan/Size), lihat utils/merchandiseOptions.js.
     options: {
       type: DataTypes.JSON,

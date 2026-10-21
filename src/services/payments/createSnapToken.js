@@ -134,16 +134,18 @@ const createTransactionSnapToken = async (payload) => {
   }
 
   const items = parseOrderItems(payload);
-  const shipping = resolveShipping(address);
+  resolveShipping(address); // tolak alamat tak dikenal sebelum mengunci stok
 
   let newTransaction;
   let grossAmount;
   let lines;
+  let shipping;
 
   const tx = await sequelize.transaction();
   try {
     const reserved = await reserveOrderItems(items, tx);
     lines = reserved.lines;
+    shipping = resolveShipping(address, reserved.weightGrams);
     grossAmount = reserved.subtotal + shipping.cost;
 
     const expiredAt = new Date(Date.now() + SNAP_EXPIRY_HOURS * 60 * 60 * 1000);
@@ -162,6 +164,7 @@ const createTransactionSnapToken = async (payload) => {
       grossAmount,
       shippingCost: shipping.cost,
       shippingZone: shipping.zone,
+      shippingWeight: reserved.weightGrams,
       expiredAt,
       stockDeducted: true,
       notes: notes || null,
@@ -199,7 +202,7 @@ const createTransactionSnapToken = async (payload) => {
           id: `shipping-${shipping.zone}`,
           price: shipping.cost,
           quantity: 1,
-          name: `Ongkir ${shipping.zoneLabel}`.slice(0, 50),
+          name: `Ongkir ${shipping.zoneLabel} ${shipping.billedKg} kg`.slice(0, 50),
         },
       ],
       expiry: {

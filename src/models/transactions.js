@@ -1,6 +1,6 @@
 'use strict';
 const { Model } = require('sequelize');
-const { SHIPPING_ZONES } = require('../utils/shippingRates');
+const { SHIPPING_ZONES, billableKg } = require('../utils/shippingRates');
 const { parseStored } = require('../utils/merchandiseOptions');
 
 module.exports = (sequelize, DataTypes) => {
@@ -148,6 +148,19 @@ module.exports = (sequelize, DataTypes) => {
     shippingZone: {
       type: DataTypes.STRING(64),
       allowNull: true
+    },
+    // Total berat pesanan (gram) saat ongkir dihitung. NULL = transaksi lama
+    // dengan ongkir flat.
+    shippingWeight: {
+      type: DataTypes.INTEGER,
+      allowNull: true
+    },
+    shippingBilledKg: {
+      type: DataTypes.VIRTUAL,
+      get() {
+        const weight = this.getDataValue('shippingWeight');
+        return weight == null ? null : billableKg(weight);
+      }
     },
     // Snapshot pilihan opsi pembeli: [{ name, value, extraPrice }].
     selectedOptions: {

@@ -128,11 +128,15 @@ const GetAllTransaction = async (req, res) => {
   }
 };
 
-// Pratinjau ongkir untuk form checkout. data = null bila alamat belum
-// dikenali (bukan error, form cukup menampilkan petunjuk).
+// Pratinjau ongkir untuk form checkout. weight = total berat keranjang
+// (gram, dihitung klien dari berat produk; nilai final dihitung ulang server
+// saat pesanan dibuat). data = null bila alamat belum dikenali (bukan error,
+// form cukup menampilkan petunjuk).
 const GetShippingQuote = async (req, res) => {
   const address = String(req.body?.address || '').slice(0, 1000);
-  const quote = address.trim() ? quoteShipping(address) : null;
+  const weight = Number(req.body?.weight);
+  const weightGrams = Number.isFinite(weight) && weight >= 0 ? Math.min(Math.round(weight), 1000000) : undefined;
+  const quote = address.trim() ? quoteShipping(address, weightGrams) : null;
   res.status(StatusCodes.OK).json(new BaseResponse({
     status: StatusCodes.OK,
     message: quote ? 'Ongkir ditemukan' : UNKNOWN_ADDRESS_MESSAGE,
@@ -145,7 +149,7 @@ const GetShippingRates = (req, res) => {
   res.status(StatusCodes.OK).json(new BaseResponse({
     status: StatusCodes.OK,
     message: 'Tarif ongkir',
-    data: Object.entries(SHIPPING_ZONES).map(([zone, { label, cost }]) => ({ zone, label, cost })),
+    data: Object.entries(SHIPPING_ZONES).map(([zone, { label, cost, extraPerKg }]) => ({ zone, label, cost, extraPerKg })),
   }));
 };
 

@@ -2,6 +2,7 @@ const { Merchandises, sequelize } = require('../../models');
 const { StatusCodes } = require('http-status-codes');
 const BaseError = require('../../schemas/responses/BaseError');
 const { normalizeOptionsDefinition } = require('../../utils/merchandiseOptions');
+const { normalizeWeight } = require('../../utils/merchandiseWeight');
 
 const CreateMerchandises = async (body) => {
   // Start transaction
@@ -30,6 +31,7 @@ const CreateMerchandises = async (body) => {
         kategori: kategori || null,
         hpp: hpp || 0,
         options: normalizeOptionsDefinition(body.options),
+        weight: normalizeWeight(body.weight),
       },
       { transaction }
     );
