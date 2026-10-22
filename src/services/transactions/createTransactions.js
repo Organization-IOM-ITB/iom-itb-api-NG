@@ -6,10 +6,11 @@ const sendWhatsApp = require('../../utils/whatsapp');
 const { buildTransactionProofReceivedEmail } = require('../payments/templates/paymentConfirmation');
 const { buildOrderStatusUrl } = require('../payments/templates/emailLayout');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
-const { resolveShipping } = require('./shippingQuote');
+const { resolveShipping, shippingColumns, assertSameBilledKg } = require('./shippingQuote');
 const {
   parseOrderItems,
   reserveOrderItems,
+  estimateOrderWeight,
   headerFromLines,
   saveOrderItems,
   formatOrderLines,
@@ -65,9 +66,9 @@ const notifyTransactionProofReceived = async (trx, lines) => {
 
 const CreateTransaction = async (body, files, uploadPath) => {
   const imageFile = files && files['payment'] ? files['payment'][0] : null;
-  const { username, email, noTelp, address, notes } = body;
+  const { username, email, noTelp, address, postalCode, notes } = body;
 
-  const transaction = await sequelize.transaction();
+  let transaction;
   try {
     // Validasi di dalam try agar bukti bayar yang sudah terunggah ikut
     // dihapus bila input/alamat tidak valid.
@@ -78,10 +79,12 @@ const CreateTransaction = async (body, files, uploadPath) => {
       });
     }
     const items = parseOrderItems(body);
-    resolveShipping(address); // tolak alamat tak dikenal sebelum mengunci stok
+    // Ongkir (bisa memanggil API kurir) dihitung sebelum stok dikunci.
+    const shipping = await resolveShipping({ address, postalCode }, await estimateOrderWeight(items));
 
+    transaction = await sequelize.transaction();
     const { lines, subtotal, weightGrams } = await reserveOrderItems(items, transaction);
-    const shipping = resolveShipping(address, weightGrams);
+    assertSameBilledKg(shipping, weightGrams);
 
     // Multer (middlewares/multer.js) actually saves uploaded files to
     // src/uploads/, served statically at the /uploads prefix (see app.js) —
@@ -102,9 +105,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
         paymentMethod: 'manual',
         paymentStatus: 'pending',
         grossAmount,
-        shippingCost: shipping.cost,
-        shippingZone: shipping.zone,
-        shippingWeight: weightGrams,
+        ...shippingColumns(shipping, weightGrams),
         stockDeducted: true,
         notes: notes || null,
       },
@@ -128,7 +129,7 @@ const CreateTransaction = async (body, files, uploadPath) => {
       orderStatusUrl: buildOrderStatusUrl(newTransaction.publicToken),
     };
   } catch (error) {
-    await transaction.rollback();
+    if (transaction) await transaction.rollback();
 
     if (files && imageFile) {
       const imageFilePath = path.join(__dirname, '../../uploads', imageFile.filename);

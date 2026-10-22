@@ -6,8 +6,9 @@ const GetTransaction = require('../services/transactions/getTransactions');
 const UpdateTransaction = require('../services/transactions/updateTransactions'); // Fixed the function name
 const DeleteTransaction = require('../services/transactions/deleteTransactions'); // Fixed the function name
 const ConfirmManualPayment = require('../services/transactions/confirmManualPayment');
-const { UNKNOWN_ADDRESS_MESSAGE } = require('../services/transactions/shippingQuote');
-const { quoteShipping, SHIPPING_ZONES } = require('../utils/shippingRates');
+const { UNKNOWN_ADDRESS_MESSAGE, quoteOrderShipping } = require('../services/transactions/shippingQuote');
+const { SHIPPING_ZONES } = require('../utils/shippingRates');
+const { liveShippingEnabled, normalizePostalCode } = require('../utils/shippingProviders');
 
 const GetTransactionById = async (req, res) => {
   try {
@@ -130,13 +131,17 @@ const GetAllTransaction = async (req, res) => {
 
 // Pratinjau ongkir untuk form checkout. weight = total berat keranjang
 // (gram, dihitung klien dari berat produk; nilai final dihitung ulang server
-// saat pesanan dibuat). data = null bila alamat belum dikenali (bukan error,
-// form cukup menampilkan petunjuk).
+// saat pesanan dibuat). postalCode = kode pos tujuan untuk tarif live.
+// data = null bila tujuan belum dikenali (bukan error, form cukup
+// menampilkan petunjuk).
 const GetShippingQuote = async (req, res) => {
   const address = String(req.body?.address || '').slice(0, 1000);
+  const postalCode = normalizePostalCode(req.body?.postalCode);
   const weight = Number(req.body?.weight);
   const weightGrams = Number.isFinite(weight) && weight >= 0 ? Math.min(Math.round(weight), 1000000) : undefined;
-  const quote = address.trim() ? quoteShipping(address, weightGrams) : null;
+  const quote = address.trim() || postalCode
+    ? await quoteOrderShipping({ address, postalCode }, weightGrams)
+    : null;
   res.status(StatusCodes.OK).json(new BaseResponse({
     status: StatusCodes.OK,
     message: quote ? 'Ongkir ditemukan' : UNKNOWN_ADDRESS_MESSAGE,
@@ -144,11 +149,12 @@ const GetShippingQuote = async (req, res) => {
   }));
 };
 
-// Daftar tarif ongkir untuk ditampilkan di halaman checkout.
+// Daftar tarif ongkir (tabel zona) untuk ditampilkan di halaman checkout.
+// Bila tarif live aktif, tabel ini hanya cadangan saat API kurir gagal.
 const GetShippingRates = (req, res) => {
   res.status(StatusCodes.OK).json(new BaseResponse({
     status: StatusCodes.OK,
-    message: 'Tarif ongkir',
+    message: liveShippingEnabled() ? 'Tarif ongkir cadangan (tarif live aktif)' : 'Tarif ongkir',
     data: Object.entries(SHIPPING_ZONES).map(([zone, { label, cost, extraPerKg }]) => ({ zone, label, cost, extraPerKg })),
   }));
 };

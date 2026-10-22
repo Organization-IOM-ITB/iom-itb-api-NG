@@ -4,11 +4,12 @@ const BaseError = require('../../schemas/responses/BaseError');
 const { snap } = require('../../utils/midtrans');
 const { getDonationAmountBreakdown } = require('../donations/donationAmount');
 const { generateOrderTrackingToken } = require('../../utils/orderTrackingToken');
-const { resolveShipping } = require('../transactions/shippingQuote');
+const { resolveShipping, shippingColumns, assertSameBilledKg } = require('../transactions/shippingQuote');
 const { describeSelectedOptions } = require('../../utils/merchandiseOptions');
 const {
   parseOrderItems,
   reserveOrderItems,
+  estimateOrderWeight,
   headerFromLines,
   saveOrderItems,
   releaseOrderStock,
@@ -124,7 +125,7 @@ const createDonationSnapToken = async (payload) => {
 };
 
 const createTransactionSnapToken = async (payload) => {
-  const { username, email, noTelp, address, notes } = payload;
+  const { username, email, noTelp, address, postalCode, notes } = payload;
 
   if (!username || !email || !noTelp || !address) {
     throw new BaseError({
@@ -134,18 +135,18 @@ const createTransactionSnapToken = async (payload) => {
   }
 
   const items = parseOrderItems(payload);
-  resolveShipping(address); // tolak alamat tak dikenal sebelum mengunci stok
+  // Ongkir (bisa memanggil API kurir) dihitung sebelum stok dikunci.
+  const shipping = await resolveShipping({ address, postalCode }, await estimateOrderWeight(items));
 
   let newTransaction;
   let grossAmount;
   let lines;
-  let shipping;
 
   const tx = await sequelize.transaction();
   try {
     const reserved = await reserveOrderItems(items, tx);
     lines = reserved.lines;
-    shipping = resolveShipping(address, reserved.weightGrams);
+    assertSameBilledKg(shipping, reserved.weightGrams);
     grossAmount = reserved.subtotal + shipping.cost;
 
     const expiredAt = new Date(Date.now() + SNAP_EXPIRY_HOURS * 60 * 60 * 1000);
@@ -162,9 +163,7 @@ const createTransactionSnapToken = async (payload) => {
       paymentMethod: 'midtrans',
       paymentStatus: 'pending',
       grossAmount,
-      shippingCost: shipping.cost,
-      shippingZone: shipping.zone,
-      shippingWeight: reserved.weightGrams,
+      ...shippingColumns(shipping, reserved.weightGrams),
       expiredAt,
       stockDeducted: true,
       notes: notes || null,
@@ -199,7 +198,7 @@ const createTransactionSnapToken = async (payload) => {
         })),
         {
           // Midtrans menolak bila jumlah item_details != gross_amount.
-          id: `shipping-${shipping.zone}`,
+          id: `shipping-${shipping.zone || shipping.provider}`,
           price: shipping.cost,
           quantity: 1,
           name: `Ongkir ${shipping.zoneLabel} ${shipping.billedKg} kg`.slice(0, 50),

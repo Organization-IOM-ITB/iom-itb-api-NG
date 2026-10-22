@@ -57,6 +57,10 @@
  *                 type: string
  *               address:
  *                 type: string
+ *               postalCode:
+ *                 type: string
+ *                 description: Kode pos tujuan (5 digit) untuk ongkir live RajaOngkir/AgenWebsite.
+ *                 example: '40132'
  *               items:
  *                 type: string
  *                 description: >

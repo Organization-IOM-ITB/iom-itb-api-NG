@@ -155,6 +155,20 @@ module.exports = (sequelize, DataTypes) => {
       type: DataTypes.INTEGER,
       allowNull: true
     },
+    // Sumber tarif: 'rajaongkir' | 'agenwebsite' | 'table' (tabel zona).
+    shippingProvider: {
+      type: DataTypes.STRING(32),
+      allowNull: true
+    },
+    // Layanan kurir dari tarif live, mis. "J&T Express EZ".
+    shippingService: {
+      type: DataTypes.STRING(128),
+      allowNull: true
+    },
+    shippingPostalCode: {
+      type: DataTypes.STRING(10),
+      allowNull: true
+    },
     shippingBilledKg: {
       type: DataTypes.VIRTUAL,
       get() {
@@ -173,6 +187,8 @@ module.exports = (sequelize, DataTypes) => {
     shippingZoneLabel: {
       type: DataTypes.VIRTUAL,
       get() {
+        const service = this.getDataValue('shippingService');
+        if (service) return service;
         const zone = SHIPPING_ZONES[this.getDataValue('shippingZone')];
         return zone ? zone.label : null;
       }

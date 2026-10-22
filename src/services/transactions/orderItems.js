@@ -118,6 +118,17 @@ const reserveOrderItems = async (items, t) => {
   };
 };
 
+/**
+ * Perkiraan total berat (gram) tanpa mengunci stok — dipakai menghitung ongkir
+ * (bisa memanggil API kurir) SEBELUM DB transaction dibuka.
+ */
+const estimateOrderWeight = async (items) => {
+  const ids = [...new Set(items.map((i) => i.merchandiseId))];
+  const found = await Merchandises.findAll({ where: { id: ids }, attributes: ['id', 'weight'] });
+  const byId = new Map(found.map((m) => [m.id, m]));
+  return items.reduce((sum, i) => (byId.has(i.merchandiseId) ? sum + itemWeight(byId.get(i.merchandiseId)) * i.qty : sum), 0);
+};
+
 // Kolom header Transactions = baris pertama (kompatibilitas tampilan lama).
 const headerFromLines = (lines) => ({
   merchandiseId: lines[0].merchandiseId,
@@ -253,6 +264,7 @@ module.exports = {
   MAX_ITEMS,
   parseOrderItems,
   reserveOrderItems,
+  estimateOrderWeight,
   headerFromLines,
   saveOrderItems,
   releaseOrderStock,
